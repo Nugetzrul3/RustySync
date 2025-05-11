@@ -4,13 +4,13 @@ It monitors a local folder and synchronises changes to a remote server like a li
 Built to demonstrate efficient file I/O, concurrency, and network communication in Rust.
 
 # Dependencies
-- `clap`
-- `notify`
-- `blake3`
-- `actix-web`
-- `serde` 
-- `serde_json`
-- `rusqlite`
+- `clap` >= 4.5.32
+- `notify` >= 8.0.0
+- `blake3` >= 1.8.2
+- `actix-web` >= 4.10.2
+- `serde` >= 1.0.219
+- `serde_json` >= 1.0.140
+- `rusqlite` >= 0.34.0
 
 # How to build
 1. Clone this repository
