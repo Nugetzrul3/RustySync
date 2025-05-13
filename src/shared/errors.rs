@@ -1,0 +1,1 @@
+// Shared file for error handling
