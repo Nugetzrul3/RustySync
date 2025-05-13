@@ -16,6 +16,9 @@ Built to demonstrate efficient file I/O, concurrency, and network communication 
 1. Clone this repository
 2. Run `cargo build` (or `cargo build --release` if you want release build)
 
+# Running client
+`cargo run [--release] -- client [path]` eg. `cargo run -- client ./files`
+
 # Roadmap
 - [ ] **File Watcher**
   - Watch a directory for file changes using `notify`
