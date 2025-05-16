@@ -20,7 +20,7 @@ Built to demonstrate efficient file I/O, concurrency, and network communication 
 `cargo run [--release] -- client [path]` eg. `cargo run -- client ./files`
 
 # Roadmap
-- [ ] **File Watcher**
+- [x] **File Watcher**
   - Watch a directory for file changes using `notify`
   - Detect `create`, `modify`, and `remove` events
 
