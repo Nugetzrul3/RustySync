@@ -45,13 +45,18 @@ pub fn watch_path(path: PathBuf) -> Result<()> {
 
                     if should_process {
                         last_event_times.insert(path.clone(), now);
-                        match &event.kind {
-                            EventKind::Create(_) => {
-                                println!("Created: {:?}", path);
-                            }
 
-                            EventKind::Modify(_) => {
-                                println!("Modified: {:?}", path);
+                        std::thread::sleep(Duration::from_millis(100));
+
+                        match &event.kind {
+                            EventKind::Create(_) | EventKind::Modify(_) => {
+                                if let Some(hash) = utils::hash_file(&path) {
+                                    println!("{} File created at {:?} with hash {}",
+                                    if matches!(event.kind, EventKind::Modify(_)) { "Modified" } else { "Created" },
+                                    path, hash);
+                                } else {
+                                    println!("Failed to hash file");
+                                }
                             }
 
                             EventKind::Remove(_) => {

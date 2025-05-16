@@ -24,7 +24,7 @@ Built to demonstrate efficient file I/O, concurrency, and network communication 
   - Watch a directory for file changes using `notify`
   - Detect `create`, `modify`, and `remove` events
 
-- [ ] **File Hashing**
+- [x] **File Hashing**
   - Use `blake3` to fingerprint file contents
   - Store hashes to detect if files are modified
 
