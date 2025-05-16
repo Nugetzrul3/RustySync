@@ -45,6 +45,9 @@ pub fn watch_path(path: PathBuf) -> Result<()> {
 
                     if should_process {
                         last_event_times.insert(path.clone(), now);
+
+                        std::thread::sleep(Duration::from_millis(100));
+
                         match &event.kind {
                             EventKind::Create(_) | EventKind::Modify(_) => {
                                 if let Some(hash) = utils::hash_file(&path) {
