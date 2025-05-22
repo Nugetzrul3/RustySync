@@ -5,10 +5,10 @@ use std::path::{ PathBuf };
 use std::sync::mpsc::channel;
 use std::time::{ Duration, Instant };
 use std::collections::HashMap;
-
+use rusqlite::Connection;
 use crate::client::utils;
 
-pub fn watch_path(path: PathBuf) -> Result<()> {
+pub fn watch_path(path: PathBuf, conn: &Connection) -> Result<()> {
     // Channel to receive file change events
     let (tx, rx) = channel();
 
