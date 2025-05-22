@@ -4,6 +4,8 @@ use std::path::{ PathBuf, Path };
 use std::fs::File;
 use std::io::{BufReader, Read};
 use blake3;
+use chrono::{DateTime, Utc};
+use crate::shared::models::FileRow;
 
 // Check if file path is valid
 pub fn check_file_path(path: &PathBuf) -> bool {
@@ -34,4 +36,12 @@ pub fn hash_file(path: &Path) -> Option<String> {
     }
 
     Some(hasher.finalize().to_hex().to_string())
+}
+
+pub fn convert_to_file_row(path: String, hash: String, last_modified: DateTime<Utc>) -> FileRow {
+    FileRow::new(
+        path,
+        hash,
+        last_modified
+    )
 }

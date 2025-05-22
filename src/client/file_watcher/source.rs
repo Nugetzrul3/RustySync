@@ -3,21 +3,23 @@
 use notify::{RecommendedWatcher, RecursiveMode, Watcher, Result, Config, EventKind};
 use std::path::{ PathBuf };
 use std::sync::mpsc::channel;
-use std::time::{ Duration, Instant };
+use std::time::{Duration, Instant, SystemTime};
 use std::collections::HashMap;
-
+use chrono::{DateTime, Utc};
+use rusqlite::Connection;
 use crate::client::utils;
+use crate::client::db;
 
-pub fn watch_path(path: PathBuf) -> Result<()> {
+pub fn watch_path(watch_root: PathBuf, conn: &Connection) -> Result<()> {
     // Channel to receive file change events
     let (tx, rx) = channel();
 
     // Create and instantiate the watcher
     let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
 
-    watcher.watch(&path, RecursiveMode::Recursive)?;
+    watcher.watch(&watch_root, RecursiveMode::Recursive)?;
 
-    println!("Watching for changes in {:?}", path);
+    println!("Watching for changes in {:?}", watch_root);
 
     // Implement debouncer:
     // A debouncer is a concept used in programming where we want to
@@ -51,9 +53,43 @@ pub fn watch_path(path: PathBuf) -> Result<()> {
                         match &event.kind {
                             EventKind::Create(_) | EventKind::Modify(_) => {
                                 if let Some(hash) = utils::hash_file(&path) {
-                                    println!("{} File created at {:?} with hash {}",
+                                    println!("File {} at {:?} with hash {}",
                                     if matches!(event.kind, EventKind::Modify(_)) { "Modified" } else { "Created" },
                                     path, hash);
+
+                                    println!("Checking DB entries");
+
+                                    println!("{}", path.to_str().unwrap().to_string());
+                                    let relative_path = path.strip_prefix(&watch_root)
+                                        .unwrap() // fallback to full path if stripping fails
+                                        .to_string_lossy()
+                                        .to_string();
+                                    let file_rows = db::get_file_row(conn, relative_path.clone()).unwrap_or_else(|_| Vec::new());
+                                    println!("{:?}", file_rows);
+                                    let last_modified = DateTime::<Utc>::from(SystemTime::now());
+                                    if file_rows.len() > 0 {
+                                        // A file exists in our db, lets update it
+                                        let mut file_row = file_rows.get(0).unwrap().clone();
+                                        if file_row.hash() != hash {
+                                            file_row.set_hash(hash);
+                                        }
+
+                                        file_row.set_last_modified(last_modified);
+
+                                        db::update_file_row(conn, file_row).expect("Failed to update row");
+
+                                    } else {
+                                        // This file doesnt exist, lets create an entry
+
+                                        let new_file_row = utils::convert_to_file_row(
+                                            relative_path.clone(),
+                                            hash,
+                                            last_modified
+                                        );
+
+                                        db::insert_file_row(conn, new_file_row).expect("Failed to insert file");
+                                    }
+
                                 } else {
                                     println!("Failed to hash file");
                                 }

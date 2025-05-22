@@ -2,6 +2,8 @@
 use std::path::PathBuf;
 mod client;
 use client::run_client;
+
+mod shared;
 fn main() {
     let mut args = std::env::args();
     let _ = args.next();
