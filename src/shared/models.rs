@@ -1,1 +1,42 @@
+use chrono::{DateTime, Utc};
 // Shared file for data type models
+#[derive(Clone, Debug)]
+pub struct FileRow {
+    path: String,
+    hash: String,
+    last_modified: DateTime<Utc>,
+}
+
+impl FileRow {
+    pub fn new(path: String, hash: String, last_modified: DateTime<Utc>) -> Self {
+        FileRow {
+            path,
+            hash,
+            last_modified,
+        }
+    }
+
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+
+    pub fn hash(&self) -> &str {
+        &self.hash
+    }
+
+    pub fn last_modified(&self) -> DateTime<Utc> {
+        self.last_modified
+    }
+
+    pub fn set_path(&mut self, path: String) {
+        self.path = path;
+    }
+
+    pub fn set_hash(&mut self, hash: String) {
+        self.hash = hash;
+    }
+
+    pub fn set_last_modified(&mut self, last_modified: DateTime<Utc>) {
+        self.last_modified = last_modified;
+    }
+}
