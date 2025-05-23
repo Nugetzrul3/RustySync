@@ -1,7 +1,7 @@
 pub mod client;
-pub mod file_watcher;
+mod file_watcher;
 
-pub mod utils;
-pub mod db;
+mod utils;
+mod db;
 
 pub use client::run_client;
