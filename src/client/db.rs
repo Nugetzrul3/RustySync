@@ -3,7 +3,8 @@ use std::error::Error;
 use chrono::DateTime;
 use rusqlite::{Connection, params };
 use crate::shared::models::FileRow;
-pub fn init_db() -> Result<(Connection), Box<dyn Error>> {
+use crate::shared::errors::{ DbError };
+pub fn init_db() -> Result<(Connection), DbError> {
     let db_path: &Path = Path::new("files.db");
     let conn: Connection = Connection::open(db_path)?;
     conn.execute(
@@ -18,7 +19,7 @@ pub fn init_db() -> Result<(Connection), Box<dyn Error>> {
     Ok(conn)
 }
 
-pub fn insert_file_row(conn: &Connection, file_row: FileRow) -> Result<(), Box<dyn Error>> {
+pub fn insert_file_row(conn: &Connection, file_row: FileRow) -> Result<(), DbError> {
     let mut statement = conn.prepare(
         "INSERT INTO files(path, hash, last_modified)\
             VALUES (?1, ?2, ?3)"
@@ -28,7 +29,7 @@ pub fn insert_file_row(conn: &Connection, file_row: FileRow) -> Result<(), Box<d
     Ok(())
 }
 
-pub fn update_file_row(conn: &Connection, file_row: FileRow) -> Result<(), Box<dyn Error>> {
+pub fn update_file_row(conn: &Connection, file_row: FileRow) -> Result<(), DbError> {
     let mut statement = conn.prepare(
         "UPDATE files SET last_modified=?1, hash=?2 WHERE path=?3"
     )?;
@@ -37,7 +38,7 @@ pub fn update_file_row(conn: &Connection, file_row: FileRow) -> Result<(), Box<d
     Ok(())
 }
 
-pub fn get_file_row(conn: &Connection, path: String) -> Result<Vec<FileRow>, Box<dyn Error>> {
+pub fn get_file_row(conn: &Connection, path: &String) -> Result<Vec<FileRow>, DbError> {
     let mut statement = conn.prepare(
         "SELECT * FROM files WHERE path=?1"
     )?;
@@ -48,16 +49,28 @@ pub fn get_file_row(conn: &Connection, path: String) -> Result<Vec<FileRow>, Box
     let mut file_rows: Vec<FileRow> = Vec::new();
     while let Some(row) = rows.next()? {
         // Converts database string rfc time to DateTime object
-        let last_modified = DateTime::parse_from_rfc3339(&row.get::<_, String>(0)?)?;
+        let last_modified = DateTime::parse_from_rfc3339(&row.get::<_, String>(3)?)?;
         let file_row: FileRow = FileRow::new(
-            row.get(0)?,
             row.get(1)?,
+            row.get(2)?,
             last_modified.to_utc()
 
         );
+
+        println!("File row: {:?}", file_row);
 
         file_rows.push(file_row);
     }
 
     Ok(file_rows)
+}
+
+pub fn remove_file_row(conn: &Connection, path: &String) -> Result<(), DbError> {
+    let mut statement = conn.prepare(
+        "DELETE FROM files WHERE path=?1"
+    )?;
+
+    statement.execute(params![path])?;
+
+    Ok(())
 }

@@ -38,6 +38,10 @@ pub fn hash_file(path: &Path) -> Option<String> {
     Some(hasher.finalize().to_hex().to_string())
 }
 
+pub fn format_file_path(path: &String) -> String {
+    path.replace("\\", "/").replace("./", "")
+}
+
 pub fn convert_to_file_row(path: String, hash: String, last_modified: DateTime<Utc>) -> FileRow {
     FileRow::new(
         path,

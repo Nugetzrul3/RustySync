@@ -9,6 +9,7 @@ use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 use crate::client::utils;
 use crate::client::db;
+use crate::shared::errors::{ DbError };
 
 pub fn watch_path(watch_root: PathBuf, conn: &Connection) -> Result<()> {
     // Channel to receive file change events
@@ -59,13 +60,11 @@ pub fn watch_path(watch_root: PathBuf, conn: &Connection) -> Result<()> {
 
                                     println!("Checking DB entries");
 
-                                    println!("{}", path.to_str().unwrap().to_string());
-                                    let relative_path = path.strip_prefix(&watch_root)
-                                        .unwrap() // fallback to full path if stripping fails
-                                        .to_string_lossy()
-                                        .to_string();
-                                    let file_rows = db::get_file_row(conn, relative_path.clone()).unwrap_or_else(|_| Vec::new());
-                                    println!("{:?}", file_rows);
+                                    let file_path = utils::format_file_path(&path.to_str().unwrap().to_string());
+                                    let file_rows = db::get_file_row(conn, &file_path).unwrap_or_else(|e| {
+                                        eprintln!("Error getting file row: {}", e);
+                                        Vec::new()
+                                    });
                                     let last_modified = DateTime::<Utc>::from(SystemTime::now());
                                     if file_rows.len() > 0 {
                                         // A file exists in our db, lets update it
@@ -76,18 +75,22 @@ pub fn watch_path(watch_root: PathBuf, conn: &Connection) -> Result<()> {
 
                                         file_row.set_last_modified(last_modified);
 
-                                        db::update_file_row(conn, file_row).expect("Failed to update row");
+                                        db::update_file_row(conn, file_row).unwrap_or_else(|e| {
+                                            eprintln!("Error updating DB entries: {:?}", e);
+                                        });
 
                                     } else {
                                         // This file doesnt exist, lets create an entry
 
                                         let new_file_row = utils::convert_to_file_row(
-                                            relative_path.clone(),
+                                            file_path,
                                             hash,
                                             last_modified
                                         );
 
-                                        db::insert_file_row(conn, new_file_row).expect("Failed to insert file");
+                                        db::insert_file_row(conn, new_file_row).unwrap_or_else(|e| {
+                                            eprintln!("Failed to insert new: {:?}", e);
+                                        })
                                     }
 
                                 } else {
@@ -96,6 +99,11 @@ pub fn watch_path(watch_root: PathBuf, conn: &Connection) -> Result<()> {
                             }
 
                             EventKind::Remove(_) => {
+                                let file_path = utils::format_file_path(&path.to_str().unwrap().to_string());
+                                db::remove_file_row(conn, &file_path).unwrap_or_else(|e| {
+                                    eprintln!("Failed to remove file: {:?}", e);
+
+                                });
                                 println!("Removed: {:?}", path);
                             }
 

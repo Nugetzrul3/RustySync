@@ -1,9 +1,10 @@
 // Main entry point for running client/server
-use std::path::PathBuf;
 mod client;
-use client::run_client;
-
 mod shared;
+
+use client::run_client;
+use std::path::PathBuf;
+
 fn main() {
     let mut args = std::env::args();
     let _ = args.next();
