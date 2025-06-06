@@ -9,7 +9,6 @@ use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 use crate::client::utils;
 use crate::client::db;
-use crate::shared::errors::{ DbError };
 
 pub fn watch_path(watch_root: PathBuf, conn: &Connection) -> Result<()> {
     // Channel to receive file change events

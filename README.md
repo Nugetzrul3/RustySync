@@ -28,7 +28,7 @@ Built to demonstrate efficient file I/O, concurrency, and network communication 
   - Use `blake3` to fingerprint file contents
   - Store hashes to detect if files are modified
 
-- [ ] **Metadata Management**
+- [x] **Metadata Management**
   - Store file paths, hashes, and timestamps in SQLite via `rusqlite`
   - Serialize metadata as JSON using `serde_json`
 
