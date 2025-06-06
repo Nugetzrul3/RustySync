@@ -9,6 +9,10 @@ use crate::shared::models::FileRow;
 
 // Check if file path is valid
 pub fn check_file_path(path: &PathBuf) -> bool {
+    if path.is_dir() {
+        return false;
+    }
+
     let invalid_suffixes = ["~", ".tmp", ".swp"];
     let file_name = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
 
