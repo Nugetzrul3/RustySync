@@ -9,8 +9,13 @@ use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 use crate::client::utils;
 use crate::client::db;
+use crate::client::file_watcher::sync::sync;
 
 pub fn watch_path(watch_root: PathBuf, conn: &Connection) -> Result<()> {
+    // First sync files
+    println!("Syncing directory {:?}", watch_root);
+    sync(&watch_root, conn);
+
     // Channel to receive file change events
     let (tx, rx) = channel();
 
@@ -57,9 +62,14 @@ pub fn watch_path(watch_root: PathBuf, conn: &Connection) -> Result<()> {
                                     if matches!(event.kind, EventKind::Modify(_)) { "Modified" } else { "Created" },
                                     path, hash);
 
-                                    println!("Checking DB entries");
-
-                                    let file_path = utils::format_file_path(&path.to_str().unwrap().to_string());
+                                    let relative_path = match path.strip_prefix(&watch_root) {
+                                        Ok(p) => p.to_path_buf(),
+                                        Err(_) => {
+                                            eprintln!("Failed to get relative path for {:?}", path);
+                                            continue;
+                                        }
+                                    };
+                                    let file_path = utils::format_file_path(&relative_path.to_string_lossy().to_string());
                                     let file_rows = db::get_file_row(conn, &file_path).unwrap_or_else(|e| {
                                         eprintln!("Error getting file row: {}", e);
                                         Vec::new()

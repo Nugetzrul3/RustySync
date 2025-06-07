@@ -1,5 +1,4 @@
 use std::path::Path;
-use std::error::Error;
 use chrono::DateTime;
 use rusqlite::{Connection, params };
 use crate::shared::models::FileRow;
@@ -43,7 +42,6 @@ pub fn get_file_row(conn: &Connection, path: &String) -> Result<Vec<FileRow>, Db
         "SELECT * FROM files WHERE path=?1"
     )?;
 
-    println!("Executing SQL: {} with path = {}", "SELECT * FROM files WHERE path=?1", path);
     let mut rows = statement.query(params![path])?;
 
     let mut file_rows: Vec<FileRow> = Vec::new();
@@ -56,8 +54,6 @@ pub fn get_file_row(conn: &Connection, path: &String) -> Result<Vec<FileRow>, Db
             last_modified.to_utc()
 
         );
-
-        println!("File row: {:?}", file_row);
 
         file_rows.push(file_row);
     }
