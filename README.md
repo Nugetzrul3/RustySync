@@ -32,6 +32,10 @@ Built to demonstrate efficient file I/O, concurrency, and network communication 
   - Store file paths, hashes, and timestamps in SQLite via `rusqlite`
   - Serialize metadata as JSON using `serde_json`
 
+- [x] **Startup Sync**
+  - Sync new files at startup using `walkdir`
+  - Check hash and last modified time of existing files and update in DB
+
 - [ ] **HTTP Server (Actix-Web)**
   - Build a RESTful API to receive file uploads and metadata
   - Save received files and update server-side SQLite metadata
