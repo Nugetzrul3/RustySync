@@ -1,5 +1,5 @@
 // Main logic for running file sync client
-use crate::client::file_watcher::source::watch_path;
+use crate::client::file_watcher::watcher::watch_path;
 use std::path::{ PathBuf };
 use crate::client::db::init_db;
 
