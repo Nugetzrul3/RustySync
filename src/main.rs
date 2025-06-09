@@ -2,11 +2,7 @@
 mod client;
 mod server;
 mod shared;
-
-use client::run_client;
-use server::start;
 use std::path::PathBuf;
-use actix_web::dev::ResourcePath;
 
 #[tokio::main]
 async fn main() {
@@ -17,7 +13,7 @@ async fn main() {
         Some("client") => {
             println!("Running client");
             let path = args.next().expect("A client path is required");
-            run_client(PathBuf::from(path));
+            client::run_client(PathBuf::from(path));
         }
 
         Some("server") => {
@@ -28,7 +24,7 @@ async fn main() {
                 .expect("Port must be a number");
 
             println!("Starting server with port {}", port);
-            if let Err(e) = start(port).await {
+            if let Err(e) = server::start(port).await {
                 eprintln!("Server error{:?}", e);
             }
 

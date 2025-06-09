@@ -3,7 +3,8 @@ use chrono::DateTime;
 use rusqlite::{Connection, params };
 use crate::shared::models::FileRow;
 use crate::shared::errors::{ DbError };
-pub fn init_db() -> Result<(Connection), DbError> {
+use crate::shared::utils;
+pub fn init_db() -> Result<Connection, DbError> {
     let db_path: &Path = Path::new("files.db");
     let conn: Connection = Connection::open(db_path)?;
     conn.execute(
@@ -39,7 +40,7 @@ pub fn update_file_row(conn: &Connection, file_row: FileRow) -> Result<(), DbErr
 
 pub fn get_file_row(conn: &Connection, path: &String) -> Result<Vec<FileRow>, DbError> {
     let mut statement = conn.prepare(
-        "SELECT * FROM files WHERE path=?1"
+        "SELECT path, hash, last_modified FROM files WHERE path=?1"
     )?;
 
     let mut rows = statement.query(params![path])?;
@@ -47,12 +48,11 @@ pub fn get_file_row(conn: &Connection, path: &String) -> Result<Vec<FileRow>, Db
     let mut file_rows: Vec<FileRow> = Vec::new();
     while let Some(row) = rows.next()? {
         // Converts database string rfc time to DateTime object
-        let last_modified = DateTime::parse_from_rfc3339(&row.get::<_, String>(3)?)?;
-        let file_row: FileRow = FileRow::new(
+        let last_modified = DateTime::parse_from_rfc3339(&row.get::<_, String>(2)?)?;
+        let file_row: FileRow = utils::convert_to_file_row(
+            row.get(0)?,
             row.get(1)?,
-            row.get(2)?,
             last_modified.to_utc()
-
         );
 
         file_rows.push(file_row);

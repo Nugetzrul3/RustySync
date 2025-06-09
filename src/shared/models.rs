@@ -1,6 +1,8 @@
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+
 // Shared file for data type models
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FileRow {
     path: String,
     hash: String,
