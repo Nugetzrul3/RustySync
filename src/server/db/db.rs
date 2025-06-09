@@ -40,3 +40,13 @@ pub fn get_files(conn: &Connection) -> Result<Vec<FileRow>, DbError> {
     Ok(files)
 
 }
+
+pub fn insert_file(conn: &Connection, file: &FileRow) -> Result<(), DbError> {
+    let mut statement = conn.prepare(
+        "INSERT INTO files(path, hash, last_modified)\
+            VALUES (?1, ?2, ?3)"
+    )?;
+
+    statement.execute(params![file.path(), file.hash(), file.last_modified().to_rfc3339()])?;
+    Ok(())
+}
