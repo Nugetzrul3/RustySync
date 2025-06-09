@@ -7,14 +7,14 @@ use std::time::{Duration, Instant, SystemTime};
 use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use rusqlite::Connection;
-use crate::client::utils;
+use crate::shared::utils;
 use crate::client::db;
-use crate::client::file_watcher::sync::sync;
+use crate::client::file_watcher::sync;
 
 pub fn watch_path(watch_root: PathBuf, conn: &Connection) -> Result<()> {
     // First sync files
     println!("Syncing directory {:?}", watch_root);
-    sync(&watch_root, conn);
+    sync::sync(&watch_root, conn);
 
     // Channel to receive file change events
     let (tx, rx) = channel();

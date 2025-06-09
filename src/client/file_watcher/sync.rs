@@ -3,8 +3,9 @@ use std::path::PathBuf;
 use rusqlite::Connection;
 // This module can walk entire directories recursively and efficently
 use walkdir::WalkDir;
-use crate::client::{ utils, db };
-use chrono::{ DateTime, Utc };
+use crate::client::db;
+use chrono::{DateTime, Utc};
+use crate::shared::utils;
 
 pub fn sync(root: &PathBuf, conn: &Connection) {
     // Loop through files
