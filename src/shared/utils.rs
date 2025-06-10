@@ -3,8 +3,10 @@
 use std::path::{ PathBuf, Path };
 use std::fs::File;
 use std::io::{BufReader, Read};
+use actix_web::HttpResponse;
 use blake3;
 use chrono::{DateTime, Utc};
+use serde_json::json;
 use crate::shared::models::FileRow;
 
 // Check if file path is valid
@@ -52,4 +54,19 @@ pub fn convert_to_file_row(path: String, hash: String, last_modified: DateTime<U
         hash,
         last_modified
     )
+}
+
+pub fn internal_server_error(error: String) -> HttpResponse {
+    HttpResponse::InternalServerError().json(json!({ "status": "INTERNAL_SERVER_ERROR", "error": error }))
+}
+
+pub fn okay_response(data: Option<serde_json::Value>) -> HttpResponse {
+    match data {
+        Some(data) => HttpResponse::Ok().json(json!({ "status": "OK", "message": "Success", "data": data })),
+        None => HttpResponse::Ok().json(json!({ "status": "OK", "message": "Success" })),
+    }
+}
+
+pub fn bad_request_error(error: String) -> HttpResponse {
+    HttpResponse::BadRequest().json(json!({ "status": "BAD_REQUEST", "error": error }))
 }

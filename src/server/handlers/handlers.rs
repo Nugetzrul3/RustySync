@@ -26,10 +26,10 @@ pub async fn health() -> impl Responder {
 pub async fn files(conn: web::Data<Mutex<Connection>>) -> impl Responder {
     let conn = conn.lock().unwrap();
     match db::get_files(&conn) {
-        Ok(files) => HttpResponse::Ok().json(json!({ "status": "OK", "files": files })),
+        Ok(files) => utils::okay_response(Some(json!(files))),
         Err(e) => {
             eprintln!("{:?}", e);
-            HttpResponse::InternalServerError().json(json!({ "status": "INTERNAL_SERVER_ERROR" }))
+            utils::internal_server_error(e.to_string())
         }
     }
 
@@ -42,22 +42,40 @@ pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>) 
     while let Ok(Some(mut field)) = payload.try_next().await {
         let content_disposition = field.content_disposition();
 
-        let filename = if let Some(name) = content_disposition.get_filename() {
+        let filename = if let Some(name) = content_disposition.expect("No content found").get_filename() {
             sanitize_filename::sanitize(name)
         } else {
             continue;
         };
 
         let mut filepath = PathBuf::from("files");
-        fs::create_dir_all(&filepath).await?;
+        match fs::create_dir_all(&filepath).await {
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("{:?}", e);
+                return utils::internal_server_error(e.to_string());
+            }
+        }
         filepath.push(filename);
 
-        let mut f = fs::File::create(&filepath).await?;
+        let mut f = match fs::File::create(&filepath).await {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("{:?}", e);
+                return utils::internal_server_error(e.to_string());
+            }
+        };
 
         while let Some(chunk) = field.next().await {
             let data = chunk.unwrap();
 
-            f.write_all(&data).await?;
+            match f.write_all(&data).await {
+                Ok(_) => {}
+                Err(e) => {
+                    eprintln!("{:?}", e);
+                    return utils::internal_server_error(e.to_string());
+                }
+            }
         }
 
         // Add db entry
@@ -68,23 +86,21 @@ pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>) 
                 DateTime::<Utc>::from(SystemTime::now()),
             );
 
-            db::insert_file(&conn, file_row)?;
+            match db::insert_file(&conn, &file_row) {
+                Ok(_) => {}
+                Err(e) => {
+                    eprintln!("{:?}", e);
+                    return utils::internal_server_error(e.to_string());
+                }
+            }
 
-            return HttpResponse::Ok().json(json!({
-                "status": "OK", "message": "File uploaded successfully"
-            }))
+            return utils::okay_response(None);
 
         } else {
-            return HttpResponse::InternalServerError().json(json!({
-                "status": "INTERNAL_SERVER_ERROR",
-                "error": "Failed to hash file"
-            }))
+            return utils::internal_server_error(String::from("Failed to hash file"));
         }
 
     }
 
-    HttpResponse::BadRequest().json(json!({
-        "status": "BAD_REQUEST",
-        "error": "No file was uploaded"
-    }))
+    utils::bad_request_error(String::from("No file was uploaded"))
 }
