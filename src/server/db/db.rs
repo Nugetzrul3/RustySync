@@ -41,6 +41,29 @@ pub fn get_files(conn: &Connection) -> Result<Vec<FileRow>, DbError> {
 
 }
 
+pub fn get_file(conn: &Connection, path: &String) -> Result<Vec<FileRow>, DbError> {
+    let mut statement = conn.prepare(
+        "SELECT path, hash, last_modified FROM files WHERE path=?1"
+    )?;
+
+    let mut rows = statement.query(params![path])?;
+
+    let mut file_rows: Vec<FileRow> = Vec::new();
+    while let Some(row) = rows.next()? {
+        // Converts database string rfc time to DateTime object
+        let last_modified = DateTime::parse_from_rfc3339(&row.get::<_, String>(2)?)?;
+        let file_row: FileRow = utils::convert_to_file_row(
+            row.get(0)?,
+            row.get(1)?,
+            last_modified.to_utc()
+        );
+
+        file_rows.push(file_row);
+    }
+
+    Ok(file_rows)
+}
+
 pub fn insert_file(conn: &Connection, file: &FileRow) -> Result<(), DbError> {
     let mut statement = conn.prepare(
         "INSERT INTO files(path, hash, last_modified)\
@@ -48,5 +71,15 @@ pub fn insert_file(conn: &Connection, file: &FileRow) -> Result<(), DbError> {
     )?;
 
     statement.execute(params![file.path(), file.hash(), file.last_modified().to_rfc3339()])?;
+    Ok(())
+}
+
+pub fn remove_file(conn: &Connection, path: &String) -> Result<(), DbError> {
+    let mut statement = conn.prepare(
+        "DELETE FROM files WHERE path=?1"
+    )?;
+
+    statement.execute(params![path])?;
+
     Ok(())
 }
