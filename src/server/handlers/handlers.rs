@@ -79,9 +79,11 @@ pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>) 
         }
 
         // Add db entry
-        if let Some(hash) = utils::hash_file(&filepath) {
+        return if let Some(hash) = utils::hash_file(&f.into_std().await) {
+            let filtered_path = utils::format_file_path(&filepath.to_str().unwrap().to_string());
+
             let file_row = utils::convert_to_file_row(
-                filepath.to_str().unwrap().to_string(),
+                filtered_path,
                 hash,
                 DateTime::<Utc>::from(SystemTime::now()),
             );
@@ -94,10 +96,9 @@ pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>) 
                 }
             }
 
-            return utils::okay_response(None);
-
+            utils::okay_response(None)
         } else {
-            return utils::internal_server_error(String::from("Failed to hash file"));
+            utils::internal_server_error(String::from("Failed to hash file"))
         }
 
     }

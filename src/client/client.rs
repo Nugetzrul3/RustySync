@@ -9,7 +9,7 @@ pub fn run_client(path: PathBuf) {
     println!("Initialising DB...");
     if let Ok(conn) = init_db() {
         let watch_root = fs::canonicalize(&path).unwrap();
-        if let Err(e) = watcher::watch_path(watch_root, &conn) {
+        if let Err(e) = watcher::watch_path(watch_root, &conn, &path) {
             eprintln!("{:?}", e);
         }
     } else {

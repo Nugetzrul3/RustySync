@@ -7,19 +7,21 @@ use crate::client::db;
 use chrono::{DateTime, Utc};
 use crate::shared::utils;
 
-pub fn sync(root: &PathBuf, conn: &Connection) {
+pub fn sync(root: &PathBuf, conn: &Connection, init_dir: &PathBuf) {
     // Loop through files
     for entry in WalkDir::new(root)
         .into_iter()
         .filter_map(|x| x.ok())
         .filter(|x| x.file_type().is_file())
     {
+        let mut root_path = PathBuf::from(init_dir);
         let path = entry.path().to_path_buf();
         if !utils::check_file_path(&path) {
             continue;
         }
+        let file = File::open(&path).unwrap();
 
-        let hash = match utils::hash_file(&path) {
+        let hash = match utils::hash_file(&file) {
             Some(hash) => hash,
             None => {
                 eprintln!("Error hashing file");
@@ -27,17 +29,9 @@ pub fn sync(root: &PathBuf, conn: &Connection) {
             }
         };
 
-        let file = File::open(&path);
-        let last_modified = match file {
-            Ok(file) => file.metadata().unwrap().modified().unwrap(),
-            Err(e) => {
-                eprintln!("Error opening file. {}", e);
-                continue;
-            }
-        };
+        let last_modified = file.metadata().unwrap().modified().unwrap();
 
         let last_modified_utc = DateTime::<Utc>::from(last_modified);
-
         let relative_path = match path.strip_prefix(&root) {
             Ok(p) => p.to_path_buf(),
             Err(_) => {
@@ -45,7 +39,8 @@ pub fn sync(root: &PathBuf, conn: &Connection) {
                 continue;
             }
         };
-        let file_path = utils::format_file_path(&relative_path.to_string_lossy().to_string());
+        root_path.push(&relative_path);
+        let file_path = utils::format_file_path(&root_path.to_string_lossy().to_string());
         let query = db::get_file_row(conn, &file_path);
 
         let file_rows = match query {
@@ -80,11 +75,13 @@ pub fn sync(root: &PathBuf, conn: &Connection) {
                 last_modified_utc
             );
 
-            println!("New file {}", path.display());
+            println!("New file {}", root_path.display());
             db::insert_file_row(conn, new_file_row).unwrap_or_else(|e| {
                 eprintln!("Failed to insert new: {:?}", e);
             })
         }
+
+        root_path.clear();
 
     }
 }

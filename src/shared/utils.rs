@@ -1,6 +1,6 @@
 // Helper utils for file syncing
 
-use std::path::{ PathBuf, Path };
+use std::path::{ PathBuf };
 use std::fs::File;
 use std::io::{BufReader, Read};
 use actix_web::HttpResponse;
@@ -25,8 +25,7 @@ pub fn check_file_path(path: &PathBuf) -> bool {
     true
 }
 
-pub fn hash_file(path: &Path) -> Option<String> {
-    let file = File::open(path).ok()?;
+pub fn hash_file(file: &File) -> Option<String> {
     let mut reader = BufReader::new(file);
     let mut hasher = blake3::Hasher::new();
 
