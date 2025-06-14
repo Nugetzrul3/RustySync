@@ -3,18 +3,19 @@
 use notify::{RecommendedWatcher, RecursiveMode, Watcher, Result, Config, EventKind};
 use std::path::{ PathBuf };
 use std::sync::mpsc::channel;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant};
 use std::collections::HashMap;
+use std::fs::File;
 use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 use crate::shared::utils;
 use crate::client::db;
 use crate::client::file_watcher::sync;
 
-pub fn watch_path(watch_root: PathBuf, conn: &Connection) -> Result<()> {
+pub fn watch_path(watch_root: PathBuf, conn: &Connection, init_dir: &PathBuf) -> Result<()> {
     // First sync files
     println!("Syncing directory {:?}", watch_root);
-    sync::sync(&watch_root, conn);
+    sync::sync(&watch_root, conn, init_dir);
 
     // Channel to receive file change events
     let (tx, rx) = channel();
@@ -54,10 +55,12 @@ pub fn watch_path(watch_root: PathBuf, conn: &Connection) -> Result<()> {
                         last_event_times.insert(path.clone(), now);
 
                         std::thread::sleep(Duration::from_millis(100));
+                        let mut root_path = PathBuf::from(init_dir);
+                        let file = File::open(&path)?;
 
                         match &event.kind {
                             EventKind::Create(_) | EventKind::Modify(_) => {
-                                if let Some(hash) = utils::hash_file(&path) {
+                                if let Some(hash) = utils::hash_file(&file) {
                                     println!("File {} at {:?} with hash {}",
                                     if matches!(event.kind, EventKind::Modify(_)) { "Modified" } else { "Created" },
                                     path, hash);
@@ -69,12 +72,15 @@ pub fn watch_path(watch_root: PathBuf, conn: &Connection) -> Result<()> {
                                             continue;
                                         }
                                     };
-                                    let file_path = utils::format_file_path(&relative_path.to_string_lossy().to_string());
+
+                                    root_path.push(&relative_path);
+                                    let file_path = utils::format_file_path(&root_path.to_string_lossy().to_string());
                                     let file_rows = db::get_file_row(conn, &file_path).unwrap_or_else(|e| {
                                         eprintln!("Error getting file row: {}", e);
                                         Vec::new()
                                     });
-                                    let last_modified = DateTime::<Utc>::from(SystemTime::now());
+                                    let file_metadata = file.metadata()?;
+                                    let last_modified = DateTime::<Utc>::from(file_metadata.modified()?);
                                     if file_rows.len() > 0 {
                                         // A file exists in our db, lets update it
                                         let mut file_row = file_rows.get(0).unwrap().clone();
@@ -102,18 +108,28 @@ pub fn watch_path(watch_root: PathBuf, conn: &Connection) -> Result<()> {
                                         })
                                     }
 
+                                    root_path.clear();
+
                                 } else {
                                     println!("Failed to hash file");
                                 }
                             }
 
                             EventKind::Remove(_) => {
-                                let file_path = utils::format_file_path(&path.to_str().unwrap().to_string());
+                                let relative_path = match path.strip_prefix(&watch_root) {
+                                    Ok(p) => p.to_path_buf(),
+                                    Err(_) => {
+                                        eprintln!("Failed to get relative path for {:?}", path);
+                                        continue;
+                                    }
+                                };
+                                root_path.push(&relative_path);
+                                let file_path = utils::format_file_path(&root_path.to_string_lossy().to_string());
                                 db::remove_file_row(conn, &file_path).unwrap_or_else(|e| {
                                     eprintln!("Failed to remove file: {:?}", e);
-
                                 });
                                 println!("Removed: {:?}", path);
+                                root_path.clear();
                             }
 
                             _ => {
