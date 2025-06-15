@@ -56,10 +56,10 @@ pub fn watch_path(watch_root: PathBuf, conn: &Connection, init_dir: &PathBuf) ->
 
                         std::thread::sleep(Duration::from_millis(100));
                         let mut root_path = PathBuf::from(init_dir);
-                        let file = File::open(&path)?;
 
                         match &event.kind {
                             EventKind::Create(_) | EventKind::Modify(_) => {
+                                let file = File::open(&path)?;
                                 if let Some(hash) = utils::hash_file(&file) {
                                     println!("File {} at {:?} with hash {}",
                                     if matches!(event.kind, EventKind::Modify(_)) { "Modified" } else { "Created" },

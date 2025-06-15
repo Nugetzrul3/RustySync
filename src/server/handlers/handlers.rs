@@ -66,11 +66,8 @@ pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>) 
                 continue;
             }
         }
-        println!("{:?}", &filename);
 
         filepath.push(&filename);
-
-        println!("File path: {:?}", &filepath);
 
         let file_rows = match db::get_file(&conn, &filepath.to_string_lossy().to_string()) {
             Ok(file_rows) => file_rows,
@@ -120,7 +117,7 @@ pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>) 
             continue;
         }
 
-        if let Some(hash) = utils::hash_file(&f.into_std().await) {
+        if let Some(hash) = utils::hash_filepath(&filepath) {
             let filtered_path = utils::format_file_path(&filepath.to_str().unwrap().to_string());
 
             let file_row = utils::convert_to_file_row(
@@ -159,68 +156,3 @@ pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>) 
     }
 
 }
-// let content_disposition = field.content_disposition();
-        //
-        // let filename = if let Some(name) = content_disposition.expect("No content found").get_filename() {
-        //     sanitize_filename::sanitize(name)
-        // } else {
-        //     continue;
-        // };
-        //
-        // let mut filepath = PathBuf::from("files");
-        // match fs::create_dir_all(&filepath).await {
-        //     Ok(_) => {}
-        //     Err(e) => {
-        //         eprintln!("{:?}", e);
-        //         return utils::internal_server_error(e.to_string());
-        //     }
-        // }
-        // filepath.push(filename);
-        //
-        // let mut f = match fs::File::create(&filepath).await {
-        //     Ok(f) => f,
-        //     Err(e) => {
-        //         eprintln!("{:?}", e);
-        //         return utils::internal_server_error(e.to_string());
-        //     }
-        // };
-        //
-        // while let Some(chunk) = field.next().await {
-        //     let data = chunk.unwrap();
-        //
-        //     match f.write_all(&data).await {
-        //         Ok(_) => {}
-        //         Err(e) => {
-        //             eprintln!("{:?}", e);
-        //             return utils::internal_server_error(e.to_string());
-        //         }
-        //     }
-        // }
-        //
-        // // Add db entry
-        // return if let Some(hash) = utils::hash_file(&f.into_std().await) {
-        //     let filtered_path = utils::format_file_path(&filepath.to_str().unwrap().to_string());
-        //
-        //     let file_row = utils::convert_to_file_row(
-        //         filtered_path,
-        //         hash,
-        //         DateTime::<Utc>::from(SystemTime::now()),
-        //     );
-        //
-        //     match db::insert_file(&conn, &file_row) {
-        //         Ok(_) => {}
-        //         Err(e) => {
-        //             eprintln!("{:?}", e);
-        //             return utils::internal_server_error(e.to_string());
-        //         }
-        //     }
-        //
-        //     utils::okay_response(None)
-        // } else {
-        //     utils::internal_server_error(String::from("Failed to hash file"))
-        // }
-
-    // }
-    //
-    // utils::bad_request_error(String::from("No file was uploaded"))
-// }
