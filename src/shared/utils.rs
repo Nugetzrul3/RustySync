@@ -32,7 +32,38 @@ pub fn hash_file(file: &File) -> Option<String> {
     let mut buf = [0u8; 8192];
 
     loop {
-        let bytes_read = reader.read(&mut buf).ok()?;
+        let bytes_read = match reader.read(&mut buf) {
+            Ok(n) => n,
+            Err(e) => {
+                eprintln!("Read error: {:?}", e);
+                return None;
+            }
+        };
+        if bytes_read == 0 {
+            break;
+        }
+
+        hasher.update(&buf[..bytes_read]);
+    }
+
+    Some(hasher.finalize().to_hex().to_string())
+}
+
+pub fn hash_filepath(filepath: &PathBuf) -> Option<String> {
+    let file = File::open(filepath).ok()?;
+    let mut reader = BufReader::new(file);
+    let mut hasher = blake3::Hasher::new();
+
+    let mut buf = [0u8; 8192];
+
+    loop {
+        let bytes_read = match reader.read(&mut buf) {
+            Ok(n) => n,
+            Err(e) => {
+                eprintln!("Read error: {:?}", e);
+                return None;
+            }
+        };
         if bytes_read == 0 {
             break;
         }
