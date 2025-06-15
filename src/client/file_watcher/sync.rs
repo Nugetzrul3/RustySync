@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs::File;
 use std::path::PathBuf;
 use rusqlite::Connection;
@@ -8,6 +9,7 @@ use chrono::{DateTime, Utc};
 use crate::shared::utils;
 
 pub fn sync(root: &PathBuf, conn: &Connection, init_dir: &PathBuf) {
+    let mut file_paths: HashMap<String, u8> = HashMap::new();
     // Loop through files
     for entry in WalkDir::new(root)
         .into_iter()
@@ -54,10 +56,12 @@ pub fn sync(root: &PathBuf, conn: &Connection, init_dir: &PathBuf) {
         if file_rows.len() > 0 {
             let mut file_row = file_rows.get(0).unwrap().clone();
             if file_row.hash() == hash {
+                file_paths.insert(file_path, 1);
                 continue;
             }
 
             if file_row.last_modified() == last_modified_utc {
+                file_paths.insert(file_path, 1);
                 continue;
             }
 
@@ -70,7 +74,7 @@ pub fn sync(root: &PathBuf, conn: &Connection, init_dir: &PathBuf) {
             // This file doesnt exist, lets create an entry
 
             let new_file_row = utils::convert_to_file_row(
-                file_path,
+                file_path.clone(),
                 hash,
                 last_modified_utc
             );
@@ -81,7 +85,25 @@ pub fn sync(root: &PathBuf, conn: &Connection, init_dir: &PathBuf) {
             })
         }
 
+        file_paths.insert(file_path, 1);
         root_path.clear();
 
     }
+
+    // go through db and clean deleted files
+    let file_rows = db::get_file_rows(conn).unwrap_or_else(|e| {
+        eprintln!("Error getting file rows. {}", e);
+        Vec::new()
+    });
+
+    if file_rows.len() > 0 {
+        for file_row in file_rows.iter() {
+            if let None = file_paths.get(file_row.path()) {
+                // Proceed to delete path from db
+                println!("Deleting file {}", file_row.path());
+                db::remove_file_row(conn, &file_row.path().to_string()).unwrap_or_else(|e| eprintln!("Error deleting file. {}", e));
+            }
+        }
+    }
+
 }
