@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use actix_multipart::Multipart;
 // File upload and download handlers
-use actix_web::{web, HttpResponse, Responder};
+use actix_web::{web, Responder};
 use futures_util::{StreamExt, TryStreamExt};
 use rusqlite::Connection;
 use rusqlite::fallible_iterator::FallibleIterator;
@@ -17,11 +17,7 @@ use chrono::{ DateTime, Utc };
 use crate::shared::utils;
 
 pub async fn health() -> impl Responder {
-    HttpResponse::Ok().json(json!(
-        {
-            "status": "OK",
-        }
-    ))
+    utils::okay_response(None)
 }
 
 pub async fn files(conn: web::Data<Mutex<Connection>>) -> impl Responder {
@@ -43,7 +39,6 @@ pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>) 
 
     // Iterate over the fields of the multipart file upload
     while let Ok(Some(mut field)) = payload.try_next().await {
-        println!("Field received: {:?}", field);
 
         let filename = if let Some(cd) = field.content_disposition() {
             if let Some(name) = cd.get_filename() {
@@ -69,7 +64,9 @@ pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>) 
 
         filepath.push(&filename);
 
-        let file_rows = match db::get_file(&conn, &filepath.to_string_lossy().to_string()) {
+        let file_query_path = utils::format_file_path(&filepath.to_string_lossy().to_string());
+
+        let file_rows = match db::get_file(&conn, &file_query_path) {
             Ok(file_rows) => file_rows,
             Err(e) => {
                 eprintln!("Error with DB: {:?}", e);
@@ -82,8 +79,6 @@ pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>) 
             files_failure.insert(filename.clone(), String::from("File already exists"));
             continue;
         }
-
-        println!("PATH: {:?}", filepath);
 
         let mut f = match fs::File::create(&filepath).await {
             Ok(f) => f,
