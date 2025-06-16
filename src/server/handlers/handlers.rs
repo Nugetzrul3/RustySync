@@ -1,5 +1,8 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{
+    PathBuf,
+    Component::ParentDir
+};
 use std::sync::Mutex;
 use actix_multipart::Multipart;
 // File upload and download handlers
@@ -36,6 +39,7 @@ pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>) 
     let mut files_success: HashMap<String, String> = HashMap::new();
     let mut files_failure: HashMap<String, String> = HashMap::new();
     let mut last_modified_map: HashMap<String, DateTime<Utc>> = HashMap::new();
+    let mut file_path_map: HashMap<String, String> = HashMap::new();
 
     // Iterate over the fields of the multipart file upload
     while let Ok(Some(mut field)) = payload.try_next().await {
@@ -69,6 +73,19 @@ pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>) 
 
             continue;
 
+        } else if field_name.starts_with("path_") {
+            let filename = field_name.strip_prefix("path_").unwrap();
+            let mut data = Vec::new();
+
+            while let Some(chunk) = field.next().await {
+                data.extend_from_slice(&chunk.unwrap());
+            }
+
+            let value_str = String::from_utf8_lossy(&data).trim().to_string();
+            file_path_map.insert(filename.to_string(), value_str);
+
+            continue;
+
         } else if field_name.starts_with("file_") {
             let filename = if let Some(name) = cd.get_filename() {
                 sanitize_filename::sanitize(name)
@@ -87,7 +104,33 @@ pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>) 
                 }
             }
 
-            filepath.push(&filename);
+            let sent_path_raw = file_path_map.get(&filename).unwrap();
+            if !sent_path_raw.is_empty() {
+                let sent_path = PathBuf::from(sent_path_raw);
+
+                if sent_path.is_absolute() || sent_path.components().any(|x| matches!(x, ParentDir)) {
+                    files_failure.insert(filename.clone(), "Invalid path: must be relative and not contain '..'".into());
+                    continue;
+                }
+
+                let final_path = filepath.join(&sent_path);
+
+                match fs::create_dir_all(&final_path).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        eprintln!("Error with directory creation: {:?}", e);
+                        files_failure.insert(filename.clone(), e.to_string());
+                        continue;
+                    }
+                }
+
+                filepath = final_path.join(&filename);
+
+            } else {
+                filepath.push(&filename);
+            }
+
+            println!("FINAL PATH {:?}", filepath);
 
             let file_query_path = utils::format_file_path(&filepath.to_string_lossy().to_string());
 
@@ -108,7 +151,7 @@ pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>) 
             let mut f = match fs::File::create(&filepath).await {
                 Ok(f) => f,
                 Err(e) => {
-                    eprintln!("{:?}", e);
+                    eprintln!("File creation error {:?}", e);
                     files_failure.insert(filename.clone(), e.to_string());
                     continue;
                 }
