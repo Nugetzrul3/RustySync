@@ -30,10 +30,6 @@ impl FileRow {
         self.last_modified
     }
 
-    pub fn set_path(&mut self, path: String) {
-        self.path = path;
-    }
-
     pub fn set_hash(&mut self, hash: String) {
         self.hash = hash;
     }
