@@ -42,3 +42,22 @@ impl FileRow {
         self.last_modified = last_modified;
     }
 }
+
+pub struct FileData {
+    filename: String,
+    last_modified: String
+}
+
+impl FileData {
+    pub fn new(filename: String, last_modified: String) -> Self {
+        Self { filename, last_modified }
+    }
+
+    pub fn filename(&self) -> &str {
+        &self.filename
+    }
+
+    pub fn last_modified(&self) -> &str {
+        &self.last_modified
+    }
+}
