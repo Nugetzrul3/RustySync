@@ -97,6 +97,10 @@ pub fn okay_response(data: Option<serde_json::Value>) -> HttpResponse {
     }
 }
 
+pub fn not_found_error(error: String) -> HttpResponse {
+    HttpResponse::NotFound().json(json!({ "status": "NOT_FOUND", "error": error }))
+}
+
 pub fn bad_request_error(error: String) -> HttpResponse {
     HttpResponse::BadRequest().json(json!({ "status": "BAD_REQUEST", "error": error }))
 }

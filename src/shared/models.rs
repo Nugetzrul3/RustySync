@@ -38,3 +38,8 @@ impl FileRow {
         self.last_modified = last_modified;
     }
 }
+
+#[derive(Debug, Deserialize)]
+pub struct FileRequest {
+    pub path: String
+}
