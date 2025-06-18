@@ -16,6 +16,7 @@ use sanitize_filename;
 use tokio::io::AsyncWriteExt;
 use std::time::SystemTime;
 use chrono::{ DateTime, Utc };
+use crate::shared::models::FileRequest;
 use crate::shared::utils;
 
 pub async fn health() -> impl Responder {
@@ -30,6 +31,31 @@ pub async fn files(conn: web::Data<Mutex<Connection>>) -> impl Responder {
             eprintln!("{:?}", e);
             utils::internal_server_error(e.to_string())
         }
+    }
+
+}
+
+pub async fn file(query: web::Query<FileRequest>, conn: web::Data<Mutex<Connection>>) -> impl Responder {
+    let conn = conn.lock().unwrap();
+    let query = query.into_inner();
+    let mut root_path = PathBuf::from("files");
+    root_path.push(query.path);
+    let formatted_path = utils::format_file_path(&root_path.to_string_lossy().to_string());
+
+    let file_rows = match db::get_file(&conn, &formatted_path) {
+        Ok(file_rows) => file_rows,
+        Err(e) => {
+            eprintln!("Error fetching file");
+            return utils::internal_server_error(e.to_string());
+        }
+    };
+
+    if file_rows.len() > 0 {
+        let file = file_rows.get(0).unwrap();
+        utils::okay_response(Some(json!(file)))
+
+    } else {
+        utils::not_found_error("File not found".to_string())
     }
 
 }

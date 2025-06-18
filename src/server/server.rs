@@ -19,7 +19,8 @@ pub async fn start(port: u16) -> std::io::Result<()> {
                 .app_data(shared_conn.clone())
                 .route("/health", web::get().to(handlers::health))
                 .route("/files", web::get().to(handlers::files))
-                .route("/file", web::post().to(handlers::upload))
+                .route("/file", web::get().to(handlers::file))
+                .route("/upload", web::post().to(handlers::upload))
         })
             .bind(("127.0.0.1", port))?
             .run()
