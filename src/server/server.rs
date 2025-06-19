@@ -21,6 +21,7 @@ pub async fn start(port: u16) -> std::io::Result<()> {
                 .route("/files", web::get().to(handlers::files))
                 .route("/file", web::get().to(handlers::file))
                 .route("/upload", web::post().to(handlers::upload))
+                .route("/delete", web::delete().to(handlers::delete))
         })
             .bind(("127.0.0.1", port))?
             .run()
