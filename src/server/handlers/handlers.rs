@@ -253,3 +253,60 @@ pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>) 
     }
 
 }
+
+pub async fn delete(query: web::Query<FileRequest>, conn: web::Data<Mutex<Connection>>) -> impl Responder {
+    let conn = conn.lock().unwrap();
+    let query = query.into_inner();
+
+    let mut root = PathBuf::from("files");
+    root.push(&query.path);
+    let filtered_path = utils::format_file_path(&root.to_string_lossy().to_string());
+
+    let final_path = PathBuf::from(&filtered_path);
+
+    if final_path.is_dir() {
+        // Remove dir (and recursively find files to delete within)
+        match fs::remove_dir_all(&final_path).await {
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("Error with directory creation: {:?}", e);
+                return utils::bad_request_error(String::from("Failed to delete directory"));
+            }
+        }
+
+        utils::okay_response(None)
+    } else {
+        let file_row = match db::get_file(&conn, &filtered_path) {
+            Ok(file_row) => file_row,
+            Err(e) => {
+                eprintln!("Error fetching file row: {}", e.to_string());
+                return utils::internal_server_error(e.to_string());
+            }
+        };
+
+        if file_row.is_empty() {
+            utils::not_found_error(String::from("File not found"))
+        } else {
+            // first delete file from system
+            match fs::remove_file(&filtered_path).await {
+                Ok(_) => {}
+                Err(e) => {
+                    eprintln!("Error deleting file: {:?}", e);
+                    return utils::internal_server_error(e.to_string());
+                }
+            }
+
+            // Then remove entry from db
+            match db::remove_file(&conn, &filtered_path) {
+                Ok(_) => {}
+                Err(e) => {
+                    eprintln!("Error deleting file: {:?}", e);
+                    return utils::internal_server_error(e.to_string());
+                }
+            }
+
+            utils::okay_response(None)
+        }
+    }
+
+}
