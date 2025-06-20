@@ -5,7 +5,8 @@ use rusqlite::Connection;
 // This module can walk entire directories recursively and efficently
 use walkdir::WalkDir;
 use chrono::{DateTime, Utc};
-use crate::shared::{ utils, db};
+use crate::shared::utils;
+use crate::client::db;
 
 pub fn sync(root: &PathBuf, conn: &Connection, init_dir: &PathBuf) {
     let mut file_paths: HashMap<String, u8> = HashMap::new();
@@ -68,7 +69,7 @@ pub fn sync(root: &PathBuf, conn: &Connection, init_dir: &PathBuf) {
             file_row.set_hash(hash);
 
             println!("Syncing file {}", path.display());
-            db::update_file_row(conn, file_row).unwrap_or_else(|e| eprintln!("Error updating file. {}", e));
+            db::update_file(conn, file_row).unwrap_or_else(|e| eprintln!("Error updating file. {}", e));
         } else {
             // This file doesnt exist, lets create an entry
 

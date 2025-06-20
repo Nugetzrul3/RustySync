@@ -14,21 +14,31 @@ use tokio::fs;
 use sanitize_filename;
 use tokio::io::AsyncWriteExt;
 use std::time::SystemTime;
-use chrono::{ DateTime, Utc };
+use chrono::{DateTime, Utc };
 use crate::shared::{
     models::FileRequest,
-    db,
     utils
 };
-use crate::shared::models::UploadUsername;
+use crate::server::db;
+use crate::shared::models::QueryUsername;
 
 pub async fn health() -> impl Responder {
     utils::okay_response(None)
 }
 
-pub async fn files(conn: web::Data<Mutex<Connection>>) -> impl Responder {
+pub async fn files(conn: web::Data<Mutex<Connection>>, query: web::Query<QueryUsername>) -> impl Responder {
     let conn = conn.lock().unwrap();
-    match db::get_files(&conn) {
+    let query = query.into_inner();
+
+    let username = match query.username() {
+        Some(username) => username,
+        None => {
+            eprintln!("No username in request");
+            return utils::bad_request_error(String::from("No username in request"));
+        }
+    };
+
+    match db::get_files(&conn, &username) {
         Ok(files) => utils::okay_response(Some(json!(files))),
         Err(e) => {
             eprintln!("{:?}", e);
@@ -42,15 +52,27 @@ pub async fn file(query: web::Query<FileRequest>, conn: web::Data<Mutex<Connecti
     let conn = conn.lock().unwrap();
     let query = query.into_inner();
 
-    if query.username().is_empty() {
-        return utils::bad_request_error(String::from("username is empty"));
-    }
+    let path = match query.path() {
+        Some(path) => path,
+        None => {
+            eprintln!("Path not in request");
+            return utils::bad_request_error(String::from("No path in request"));
+        }
+    };
 
-    let mut root_path = PathBuf::from(format!("uploads/{}", query.username()));
-    root_path.push(query.path());
+    let username = match query.username() {
+        Some(username) => username,
+        None => {
+            eprintln!("No username in request");
+            return utils::bad_request_error(String::from("No username in request"));
+        }
+    };
+
+    let mut root_path = PathBuf::from(format!("uploads/{}", username));
+    root_path.push(path);
     let formatted_path = utils::format_file_path(&root_path.to_string_lossy().to_string());
 
-    let file_rows = match db::get_file(&conn, &formatted_path) {
+    let file_rows = match db::get_file(&conn, &formatted_path, &username) {
         Ok(file_rows) => file_rows,
         Err(e) => {
             eprintln!("Error fetching file");
@@ -68,17 +90,21 @@ pub async fn file(query: web::Query<FileRequest>, conn: web::Data<Mutex<Connecti
 
 }
 
-pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>, query: web::Query<UploadUsername>) -> impl Responder {
+pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>, query: web::Query<QueryUsername>) -> impl Responder {
     let conn = conn.lock().unwrap();
     let mut files_success: HashMap<String, String> = HashMap::new();
     let mut files_failure: HashMap<String, String> = HashMap::new();
     let mut last_modified_map: HashMap<String, DateTime<Utc>> = HashMap::new();
     let mut file_path_map: HashMap<String, String> = HashMap::new();
-    let username = query.into_inner().username().to_string();
+    let query = query.into_inner();
 
-    if username.is_empty() {
-        return utils::bad_request_error(String::from("username is empty"));
-    }
+    let username = match query.username() {
+        Some(username) => username,
+        None => {
+            eprintln!("No username found in request");
+            return utils::bad_request_error(String::from("No username in request"));
+        }
+    };
 
     // Iterate over the fields of the multipart file upload
     while let Ok(Some(mut field)) = payload.try_next().await {
@@ -173,7 +199,7 @@ pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>, 
 
             let file_query_path = utils::format_file_path(&filepath.to_string_lossy().to_string());
 
-            let file_rows = match db::get_file(&conn, &file_query_path) {
+            let file_rows = match db::get_file(&conn, &file_query_path, &username.to_string()) {
                 Ok(file_rows) => file_rows,
                 Err(e) => {
                     eprintln!("Error with DB: {:?}", e);
@@ -232,7 +258,7 @@ pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>, 
                     last_modified,
                 );
 
-                match db::insert_file(&conn, &file_row) {
+                match db::insert_file(&conn, &file_row, &username.to_string()) {
                     Ok(_) => {}
                     Err(e) => {
                         eprintln!("{:?}", e);
@@ -271,8 +297,24 @@ pub async fn delete(query: web::Query<FileRequest>, conn: web::Data<Mutex<Connec
     let conn = conn.lock().unwrap();
     let query = query.into_inner();
 
-    let mut root = PathBuf::from(format!("uploads/{}", query.username()));
-    root.push(&query.path());
+    let path = match query.path() {
+        Some(path) => path,
+        None => {
+            eprintln!("No path found in request");
+            return utils::bad_request_error(String::from("No path found in request"));
+        }
+    };
+
+    let username = match query.username() {
+        Some(username) => username,
+        None => {
+            eprintln!("No username found in request");
+            return utils::bad_request_error(String::from("No username found in request"));
+        }
+    };
+
+    let mut root = PathBuf::from(format!("uploads/{}", username));
+    root.push(path);
     let filtered_path = utils::format_file_path(&root.to_string_lossy().to_string());
 
     let final_path = PathBuf::from(&filtered_path);
@@ -289,7 +331,7 @@ pub async fn delete(query: web::Query<FileRequest>, conn: web::Data<Mutex<Connec
 
         utils::okay_response(None)
     } else {
-        let file_row = match db::get_file(&conn, &filtered_path) {
+        let file_row = match db::get_file(&conn, &filtered_path, username) {
             Ok(file_row) => file_row,
             Err(e) => {
                 eprintln!("Error fetching file row: {}", e.to_string());
@@ -310,7 +352,7 @@ pub async fn delete(query: web::Query<FileRequest>, conn: web::Data<Mutex<Connec
             }
 
             // Then remove entry from db
-            match db::remove_file(&conn, &filtered_path) {
+            match db::remove_file(&conn, &filtered_path, username) {
                 Ok(_) => {}
                 Err(e) => {
                     eprintln!("Error deleting file: {:?}", e);

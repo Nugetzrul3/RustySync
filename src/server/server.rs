@@ -1,14 +1,14 @@
 // Main logic for hosting Actix-Web HTTP server
 use actix_web::{ web, App, HttpServer };
 use crate::server::handlers;
-use crate::shared::db;
+use crate::server::db;
 use std::sync::Mutex;
 use std::fs;
 
 // basic server health check route
 // main server startup
 pub async fn start(port: u16) -> std::io::Result<()> {
-    if let Ok(db_conn) = db::init_db(true) {
+    if let Ok(db_conn) = db::init_db() {
         let shared_conn = web::Data::new(Mutex::new(db_conn));
         match fs::create_dir_all("uploads") {
             Ok(_) => (),

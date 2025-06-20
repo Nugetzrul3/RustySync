@@ -8,7 +8,8 @@ use std::collections::HashMap;
 use std::fs::File;
 use chrono::{DateTime, Utc};
 use rusqlite::Connection;
-use crate::shared::{ utils, db };
+use crate::shared::utils;
+use crate::client::db;
 use crate::client::file_watcher::sync;
 
 pub fn watch_path(watch_root: PathBuf, conn: &Connection, init_dir: &PathBuf) -> Result<()> {
@@ -89,7 +90,7 @@ pub fn watch_path(watch_root: PathBuf, conn: &Connection, init_dir: &PathBuf) ->
 
                                         file_row.set_last_modified(last_modified);
 
-                                        db::update_file_row(conn, file_row).unwrap_or_else(|e| {
+                                        db::update_file(conn, file_row).unwrap_or_else(|e| {
                                             eprintln!("Error updating DB entries: {:?}", e);
                                         });
 

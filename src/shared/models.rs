@@ -40,12 +40,12 @@ impl FileRow {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct UploadUsername {
-    username: String
+pub struct QueryUsername {
+    username: Option<String>
 }
 
-impl UploadUsername {
-    pub fn username(&self) -> &str {
+impl QueryUsername {
+    pub fn username(&self) -> &Option<String> {
         &self.username
     }
 }
@@ -53,16 +53,16 @@ impl UploadUsername {
 
 #[derive(Debug, Deserialize)]
 pub struct FileRequest {
-    path: String,
-    username: String
+    path: Option<String>,
+    username: Option<String>
 }
 
 impl FileRequest {
-    pub fn path(&self) -> &str {
+    pub fn path(&self) -> &Option<String> {
         &self.path
     }
 
-    pub fn username(&self) -> &str {
+    pub fn username(&self) -> &Option<String> {
         &self.username
     }
 }
