@@ -6,8 +6,12 @@ use crate::shared::models::FileRow;
 use crate::shared::utils;
 
 // Core logic for handling SQLite DB interactions
-pub fn init_db() -> Result<Connection, DbError> {
-    let db_path: &Path = Path::new("files.db");
+pub fn init_db(server: bool) -> Result<Connection, DbError> {
+    let db_path: &Path = if server {
+        Path::new("server.db")
+    } else {
+        Path::new("client.db")
+    };
     let conn: Connection = Connection::open(db_path)?;
     conn.execute(
         "CREATE TABLE IF NOT EXISTS files(
@@ -62,6 +66,15 @@ pub fn get_file(conn: &Connection, path: &String) -> Result<Vec<FileRow>, DbErro
     }
 
     Ok(file_rows)
+}
+
+pub fn update_file_row(conn: &Connection, file_row: FileRow) -> Result<(), DbError> {
+    let mut statement = conn.prepare(
+        "UPDATE files SET last_modified=?1, hash=?2 WHERE path=?3"
+    )?;
+
+    statement.execute(params![file_row.last_modified().to_rfc3339(), file_row.hash(), file_row.path()])?;
+    Ok(())
 }
 
 pub fn insert_file(conn: &Connection, file: &FileRow) -> Result<(), DbError> {

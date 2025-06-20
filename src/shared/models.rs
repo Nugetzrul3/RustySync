@@ -40,6 +40,32 @@ impl FileRow {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct FileRequest {
-    pub path: String
+pub struct UploadUsername {
+    username: String
 }
+
+impl UploadUsername {
+    pub fn username(&self) -> &str {
+        &self.username
+    }
+}
+
+
+#[derive(Debug, Deserialize)]
+pub struct FileRequest {
+    path: String,
+    username: String
+}
+
+impl FileRequest {
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+
+    pub fn username(&self) -> &str {
+        &self.username
+    }
+}
+
+
+

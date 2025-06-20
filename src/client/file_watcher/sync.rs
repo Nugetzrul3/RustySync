@@ -4,9 +4,8 @@ use std::path::PathBuf;
 use rusqlite::Connection;
 // This module can walk entire directories recursively and efficently
 use walkdir::WalkDir;
-use crate::client::db;
 use chrono::{DateTime, Utc};
-use crate::shared::utils;
+use crate::shared::{ utils, db};
 
 pub fn sync(root: &PathBuf, conn: &Connection, init_dir: &PathBuf) {
     let mut file_paths: HashMap<String, u8> = HashMap::new();
@@ -43,7 +42,7 @@ pub fn sync(root: &PathBuf, conn: &Connection, init_dir: &PathBuf) {
         };
         root_path.push(&relative_path);
         let file_path = utils::format_file_path(&root_path.to_string_lossy().to_string());
-        let query = db::get_file_row(conn, &file_path);
+        let query = db::get_file(conn, &file_path);
 
         let file_rows = match query {
             Ok(rows) => rows,
@@ -80,7 +79,7 @@ pub fn sync(root: &PathBuf, conn: &Connection, init_dir: &PathBuf) {
             );
 
             println!("New file {}", root_path.display());
-            db::insert_file_row(conn, new_file_row).unwrap_or_else(|e| {
+            db::insert_file(conn, &new_file_row).unwrap_or_else(|e| {
                 eprintln!("Failed to insert new: {:?}", e);
             })
         }
@@ -91,7 +90,7 @@ pub fn sync(root: &PathBuf, conn: &Connection, init_dir: &PathBuf) {
     }
 
     // go through db and clean deleted files
-    let file_rows = db::get_file_rows(conn).unwrap_or_else(|e| {
+    let file_rows = db::get_files(conn).unwrap_or_else(|e| {
         eprintln!("Error getting file rows. {}", e);
         Vec::new()
     });
@@ -101,7 +100,7 @@ pub fn sync(root: &PathBuf, conn: &Connection, init_dir: &PathBuf) {
             if let None = file_paths.get(file_row.path()) {
                 // Proceed to delete path from db
                 println!("Deleting file {}", file_row.path());
-                db::remove_file_row(conn, &file_row.path().to_string()).unwrap_or_else(|e| eprintln!("Error deleting file. {}", e));
+                db::remove_file(conn, &file_row.path().to_string()).unwrap_or_else(|e| eprintln!("Error deleting file. {}", e));
             }
         }
     }

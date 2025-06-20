@@ -8,8 +8,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use chrono::{DateTime, Utc};
 use rusqlite::Connection;
-use crate::shared::utils;
-use crate::client::db;
+use crate::shared::{ utils, db };
 use crate::client::file_watcher::sync;
 
 pub fn watch_path(watch_root: PathBuf, conn: &Connection, init_dir: &PathBuf) -> Result<()> {
@@ -75,7 +74,7 @@ pub fn watch_path(watch_root: PathBuf, conn: &Connection, init_dir: &PathBuf) ->
 
                                     root_path.push(&relative_path);
                                     let file_path = utils::format_file_path(&root_path.to_string_lossy().to_string());
-                                    let file_rows = db::get_file_row(conn, &file_path).unwrap_or_else(|e| {
+                                    let file_rows = db::get_file(conn, &file_path).unwrap_or_else(|e| {
                                         eprintln!("Error getting file row: {}", e);
                                         Vec::new()
                                     });
@@ -103,7 +102,7 @@ pub fn watch_path(watch_root: PathBuf, conn: &Connection, init_dir: &PathBuf) ->
                                             last_modified
                                         );
 
-                                        db::insert_file_row(conn, new_file_row).unwrap_or_else(|e| {
+                                        db::insert_file(conn, &new_file_row).unwrap_or_else(|e| {
                                             eprintln!("Failed to insert new: {:?}", e);
                                         })
                                     }
@@ -125,7 +124,7 @@ pub fn watch_path(watch_root: PathBuf, conn: &Connection, init_dir: &PathBuf) ->
                                 };
                                 root_path.push(&relative_path);
                                 let file_path = utils::format_file_path(&root_path.to_string_lossy().to_string());
-                                db::remove_file_row(conn, &file_path).unwrap_or_else(|e| {
+                                db::remove_file(conn, &file_path).unwrap_or_else(|e| {
                                     eprintln!("Failed to remove file: {:?}", e);
                                 });
                                 println!("Removed: {:?}", path);

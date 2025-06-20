@@ -10,14 +10,17 @@ use actix_web::{web, Responder};
 use futures_util::{StreamExt, TryStreamExt};
 use rusqlite::Connection;
 use serde_json::json;
-use crate::server::db;
 use tokio::fs;
 use sanitize_filename;
 use tokio::io::AsyncWriteExt;
 use std::time::SystemTime;
 use chrono::{ DateTime, Utc };
-use crate::shared::models::FileRequest;
-use crate::shared::utils;
+use crate::shared::{
+    models::FileRequest,
+    db,
+    utils
+};
+use crate::shared::models::UploadUsername;
 
 pub async fn health() -> impl Responder {
     utils::okay_response(None)
@@ -38,8 +41,13 @@ pub async fn files(conn: web::Data<Mutex<Connection>>) -> impl Responder {
 pub async fn file(query: web::Query<FileRequest>, conn: web::Data<Mutex<Connection>>) -> impl Responder {
     let conn = conn.lock().unwrap();
     let query = query.into_inner();
-    let mut root_path = PathBuf::from("files");
-    root_path.push(query.path);
+
+    if query.username().is_empty() {
+        return utils::bad_request_error(String::from("username is empty"));
+    }
+
+    let mut root_path = PathBuf::from(format!("uploads/{}", query.username()));
+    root_path.push(query.path());
     let formatted_path = utils::format_file_path(&root_path.to_string_lossy().to_string());
 
     let file_rows = match db::get_file(&conn, &formatted_path) {
@@ -60,12 +68,17 @@ pub async fn file(query: web::Query<FileRequest>, conn: web::Data<Mutex<Connecti
 
 }
 
-pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>) -> impl Responder {
+pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>, query: web::Query<UploadUsername>) -> impl Responder {
     let conn = conn.lock().unwrap();
     let mut files_success: HashMap<String, String> = HashMap::new();
     let mut files_failure: HashMap<String, String> = HashMap::new();
     let mut last_modified_map: HashMap<String, DateTime<Utc>> = HashMap::new();
     let mut file_path_map: HashMap<String, String> = HashMap::new();
+    let username = query.into_inner().username().to_string();
+
+    if username.is_empty() {
+        return utils::bad_request_error(String::from("username is empty"));
+    }
 
     // Iterate over the fields of the multipart file upload
     while let Ok(Some(mut field)) = payload.try_next().await {
@@ -120,7 +133,7 @@ pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>) 
                 continue;
             };
 
-            let mut filepath = PathBuf::from("files");
+            let mut filepath = PathBuf::from(format!("uploads/{}", username));
             match fs::create_dir_all(&filepath).await {
                 Ok(_) => {}
                 Err(e) => {
@@ -258,8 +271,8 @@ pub async fn delete(query: web::Query<FileRequest>, conn: web::Data<Mutex<Connec
     let conn = conn.lock().unwrap();
     let query = query.into_inner();
 
-    let mut root = PathBuf::from("files");
-    root.push(&query.path);
+    let mut root = PathBuf::from(format!("uploads/{}", query.username()));
+    root.push(&query.path());
     let filtered_path = utils::format_file_path(&root.to_string_lossy().to_string());
 
     let final_path = PathBuf::from(&filtered_path);
