@@ -5,31 +5,31 @@ use crate::shared::models::FileRow;
 use crate::shared::errors::{ DbError };
 use crate::shared::utils;
 pub fn init_db() -> Result<Connection, DbError> {
-    let db_path: &Path = Path::new("files.db");
+    let db_path: &Path = Path::new("client.db");
     let conn: Connection = Connection::open(db_path)?;
     conn.execute(
-    "CREATE TABLE IF NOT EXISTS files(
+        "CREATE TABLE IF NOT EXISTS files(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             path TEXT NOT NULL UNIQUE,
             hash TEXT NOT NULL,
             last_modified TEXT NOT NULL
         )",
-    params![],
+        params![],
     )?;
     Ok(conn)
 }
 
-pub fn insert_file_row(conn: &Connection, file_row: FileRow) -> Result<(), DbError> {
+pub fn insert_file(conn: &Connection, file_row: &FileRow) -> Result<(), DbError> {
     let mut statement = conn.prepare(
         "INSERT INTO files(path, hash, last_modified)\
             VALUES (?1, ?2, ?3)"
-        )?;
+    )?;
 
     statement.execute(params![file_row.path(), file_row.hash(), file_row.last_modified().to_rfc3339()])?;
     Ok(())
 }
 
-pub fn update_file_row(conn: &Connection, file_row: FileRow) -> Result<(), DbError> {
+pub fn update_file(conn: &Connection, file_row: FileRow) -> Result<(), DbError> {
     let mut statement = conn.prepare(
         "UPDATE files SET last_modified=?1, hash=?2 WHERE path=?3"
     )?;
@@ -38,7 +38,7 @@ pub fn update_file_row(conn: &Connection, file_row: FileRow) -> Result<(), DbErr
     Ok(())
 }
 
-pub fn get_file_row(conn: &Connection, path: &String) -> Result<Vec<FileRow>, DbError> {
+pub fn get_file(conn: &Connection, path: &String) -> Result<Vec<FileRow>, DbError> {
     let mut statement = conn.prepare(
         "SELECT path, hash, last_modified FROM files WHERE path=?1"
     )?;
@@ -61,7 +61,7 @@ pub fn get_file_row(conn: &Connection, path: &String) -> Result<Vec<FileRow>, Db
     Ok(file_rows)
 }
 
-pub fn remove_file_row(conn: &Connection, path: &String) -> Result<(), DbError> {
+pub fn remove_file(conn: &Connection, path: &String) -> Result<(), DbError> {
     let mut statement = conn.prepare(
         "DELETE FROM files WHERE path=?1"
     )?;
@@ -71,7 +71,7 @@ pub fn remove_file_row(conn: &Connection, path: &String) -> Result<(), DbError> 
     Ok(())
 }
 
-pub fn get_file_rows(conn: &Connection) -> Result<Vec<FileRow>, DbError> {
+pub fn get_files(conn: &Connection) -> Result<Vec<FileRow>, DbError> {
     let mut statement = conn.prepare("SELECT path, hash, last_modified FROM files")?;
 
     let mut rows = statement.query(params![])?;
