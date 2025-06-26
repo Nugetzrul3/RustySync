@@ -36,9 +36,10 @@ Built to demonstrate efficient file I/O, concurrency, and network communication 
   - Sync new files at startup using `walkdir`
   - Check hash and last modified time of existing files and update in DB
 
-- [x] **HTTP Server (Actix-Web)**
+- [ ] **HTTP Server (Actix-Web)**
   - Build a RESTful API to receive file uploads and metadata
   - Save received files and update server-side SQLite metadata
+  - Securely authenticate users who wish to interact with the server
 
 - [ ] **Sync Client**
   - Send file updates to the server when changes are detected
