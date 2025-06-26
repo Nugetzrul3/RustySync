@@ -67,5 +67,17 @@ impl FileRequest {
     }
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Claims {
+    pub sub: String,
+    pub exp: usize,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RegisterRequest {
+    username: String,
+    password: String,
+}
+
 
 

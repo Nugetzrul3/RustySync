@@ -4,6 +4,13 @@ use rusqlite::{params, Connection};
 use crate::shared::errors::DbError;
 use crate::shared::models::FileRow;
 use crate::shared::utils;
+use argon2::{
+    password_hash::{
+        SaltString,
+        rand_core::OsRng,
+    },
+    Argon2
+};
 
 // Core logic for handling SQLite DB interactions
 pub fn init_db() -> Result<Connection, DbError> {
@@ -83,4 +90,8 @@ pub fn remove_file(conn: &Connection, path: &String, username: &String) -> Resul
     statement.execute(params![path, username])?;
 
     Ok(())
+}
+
+pub fn register_user(conn: &Connection, username: &String, password: &String) -> Result<bool, DbError> {
+    Ok(true)
 }

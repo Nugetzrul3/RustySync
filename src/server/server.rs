@@ -1,6 +1,6 @@
 // Main logic for hosting Actix-Web HTTP server
 use actix_web::{ web, App, HttpServer };
-use crate::server::handlers;
+use crate::server::handlers::{ file, auth };
 use crate::server::db;
 use std::sync::Mutex;
 use std::fs;
@@ -17,11 +17,11 @@ pub async fn start(port: u16) -> std::io::Result<()> {
         HttpServer::new(move || {
             App::new()
                 .app_data(shared_conn.clone())
-                .route("/health", web::get().to(handlers::health))
-                .route("/files", web::get().to(handlers::files))
-                .route("/file", web::get().to(handlers::file))
-                .route("/upload", web::post().to(handlers::upload))
-                .route("/delete", web::delete().to(handlers::delete))
+                .route("/health", web::get().to(file::health))
+                .route("/files", web::get().to(file::files))
+                .route("/file", web::get().to(file::file))
+                .route("/upload", web::post().to(file::upload))
+                .route("/delete", web::delete().to(file::delete))
         })
             .bind(("127.0.0.1", port))?
             .run()
