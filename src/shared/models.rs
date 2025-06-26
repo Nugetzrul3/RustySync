@@ -75,8 +75,28 @@ pub struct Claims {
 
 #[derive(Debug, Deserialize)]
 pub struct RegisterRequest {
+    pub username: Option<String>,
+    pub password: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct UserRow {
     username: String,
     password: String,
+}
+
+impl UserRow {
+    pub fn new(username: String, password: String) -> Self {
+        Self { username, password }
+    }
+
+    pub fn username(&self) -> &str {
+        &self.username
+    }
+
+    pub fn password(&self) -> &str {
+        &self.password
+    }
 }
 
 
