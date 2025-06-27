@@ -17,39 +17,43 @@ use rustls::{
 use rustls_pemfile;
 
 // HTTPS setup
-fn load_config() -> io::Result<ServerConfig> {
+fn load_config() -> Option<ServerConfig> {
     aws_lc_rs::default_provider()
         .install_default()
         .unwrap();
 
-    let mut certs_file = BufReader::new(File::open("certs/cert.pem")?);
-    let mut keys_file = BufReader::new(File::open("certs/key.pem")?);
+    let mut certs_file = BufReader::new(File::open("certs/cert.pem").ok()?);
+    let mut keys_file = BufReader::new(File::open("certs/key.pem").ok()?);
 
     let tls_certs = rustls_pemfile::certs(&mut certs_file)
-        .collect::<Result<Vec<_>, _>>()?;
-    let tls_key = rustls_pemfile::pkcs8_private_keys(&mut keys_file)
-        .next()
-        .unwrap()?;
+        .collect::<Result<Vec<_>, _>>().ok()?;
+    let mut tls_key = rustls_pemfile::pkcs8_private_keys(&mut keys_file)
+        .collect::<Result<Vec<_>, _>>().ok()?;
+
+    if tls_key.is_empty() {
+        eprintln!("No TLS keys found");
+        return None;
+    }
 
     let tls_config = ServerConfig::builder()
         .with_no_client_auth()
-        .with_single_cert(tls_certs, PrivateKeyDer::Pkcs8(tls_key))
-        .unwrap();
+        .with_single_cert(tls_certs, PrivateKeyDer::Pkcs8(tls_key.remove(0)))
+        .ok()?;
 
-    Ok(tls_config)
+    Some(tls_config)
 }
 
 // basic server health check route
 // main server startup
 pub async fn start(port: u16) -> io::Result<()> {
-    let tls_config = load_config()?;
+    let tls_config = load_config();
     if let Ok(db_conn) = db::init_db() {
         let shared_conn = web::Data::new(Mutex::new(db_conn));
         match fs::create_dir_all("uploads") {
             Ok(_) => (),
             Err(e) => eprintln!("Error creating uploads dir: {:?}", e),
         }
-        HttpServer::new(move || {
+        let server = HttpServer::new(move || {
             App::new()
                 .app_data(shared_conn.clone())
                 .route("/health", web::get().to(file::health))
@@ -59,10 +63,16 @@ pub async fn start(port: u16) -> io::Result<()> {
                 .route("/delete", web::delete().to(file::delete))
 
                 .route("/register", web::post().to(auth::register))
-        })
-            .bind_rustls_0_23(("127.0.0.1", port), tls_config)?
-            .run()
-            .await
+        });
+
+        if let Some(config) = tls_config {
+            println!("Starting server with HTTPS");
+            server.bind_rustls_0_23(("127.0.0.1", port), config)?.run().await
+        } else {
+            println!("Starting server with HTTPS disabled");
+            server.bind(("127.0.0.1", port))?.run().await
+        }
+
     } else {
         eprintln!("Failed to create database connection pool");
         Ok(())

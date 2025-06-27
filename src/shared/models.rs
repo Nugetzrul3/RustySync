@@ -74,7 +74,7 @@ pub struct Claims {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RegisterRequest {
+pub struct AuthRequest {
     pub username: Option<String>,
     pub password: Option<String>,
 }
@@ -97,6 +97,19 @@ impl UserRow {
     pub fn password(&self) -> &str {
         &self.password
     }
+}
+
+// JWT claims
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserAccessToken {
+    pub sub: String,
+    pub exp: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserRefreshToken {
+    pub sub: String,
+    pub exp: usize,
 }
 
 
