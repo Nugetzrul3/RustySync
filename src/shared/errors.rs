@@ -67,7 +67,7 @@ impl Error for AuthError {
             AuthError::UsernameNotFound => None,
             AuthError::PasswordNotFound => None,
             AuthError::IncorrectPassword => None,
-            AuthError::Other(e) => Some(e),
+            AuthError::Other(_) => None,
         }
     }
 }

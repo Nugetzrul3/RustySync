@@ -106,10 +106,22 @@ pub struct UserAccessToken {
     pub exp: usize,
 }
 
+impl UserAccessToken {
+    pub fn new(sub: String, exp: usize) -> Self {
+        Self { sub, exp }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserRefreshToken {
     pub sub: String,
     pub exp: usize,
+}
+
+impl UserRefreshToken {
+    pub fn new(sub: String, exp: usize) -> Self {
+        Self { sub, exp }
+    }
 }
 
 

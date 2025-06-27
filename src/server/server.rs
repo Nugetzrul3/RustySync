@@ -63,6 +63,7 @@ pub async fn start(port: u16) -> io::Result<()> {
                 .route("/delete", web::delete().to(file::delete))
 
                 .route("/register", web::post().to(auth::register))
+                .route("/login", web::post().to(auth::login))
         });
 
         if let Some(config) = tls_config {

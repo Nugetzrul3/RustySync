@@ -14,6 +14,10 @@ use jsonwebtoken::{
     Header,
     EncodingKey,
 };
+use serde_json::json;
+
+const ACCESS_TOKEN_EXPIRY_SECONDS: usize = 60 * 15; // 15 minutes
+const REFRESH_TOKEN_EXPIRY_SECONDS: usize = 60 * 60 * 24 * 7; // 7 days
 
 pub async fn register(payload: web::Json<AuthRequest>, conn: web::Data<Mutex<Connection>>) -> impl Responder {
     let conn = conn.lock().unwrap();
@@ -84,7 +88,52 @@ pub async fn login(payload: web::Json<AuthRequest>, conn: web::Data<Mutex<Connec
         return utils::bad_request_error(String::from("Invalid password"));
     }
 
-    jsonwebtoken::encode(&Header::default(), &user, &EncodingKey::from_secret(password.as_ref())).unwrap();
+    let now = chrono::Utc::now().timestamp() as usize;
 
+    let access_token_claim = UserAccessToken::new(
+        username.clone(),
+        now + ACCESS_TOKEN_EXPIRY_SECONDS,
+    );
+
+    let refresh_token_claim = UserRefreshToken::new(
+        username.clone(),
+        now + REFRESH_TOKEN_EXPIRY_SECONDS,
+    );
+
+    let jwt_secret = std::env::var("JWT_SECRET").unwrap().into_bytes();
+
+    let access_token = match jsonwebtoken::encode(
+        &Header::default(),
+        &access_token_claim,
+        &EncodingKey::from_secret(&jwt_secret)
+    ) {
+        Ok(t) => t,
+        Err(e) => {
+            eprintln!("Error with access token generation {}", e);
+            return utils::internal_server_error(e.to_string());
+        }
+    };
+
+    let refresh_token = match jsonwebtoken::encode(
+        &Header::default(),
+        &refresh_token_claim,
+        &EncodingKey::from_secret(&jwt_secret)
+    ) {
+        Ok(t) => t,
+        Err(e) => {
+            eprintln!("Error with refresh token generation {}", e);
+            return utils::internal_server_error(e.to_string());
+        }
+    };
+
+    utils::okay_response(Some(
+        json!(
+            {
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+                "token_type": "bearer"
+            }
+        )
+    ))
 
 }
