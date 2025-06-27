@@ -17,7 +17,15 @@ Built to demonstrate efficient file I/O, concurrency, and network communication 
 2. Run `cargo build` (or `cargo build --release` if you want release build)
 
 # Running client
-`cargo run [--release] -- client [path]` eg. `cargo run -- client ./files`
+`.\target\[build variant]\RustySync.exe client [path]`
+
+# Running server
+`.\target\[build variant]\RustySync.exe server [port]`
+
+### Before running server, create .env
+```text
+JWT_SECRET = "VERY_STRONG_SECRET_HERE"
+```
 
 # Roadmap
 - [x] **File Watcher**
