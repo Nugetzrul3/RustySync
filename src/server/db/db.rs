@@ -2,8 +2,12 @@ use std::path::Path;
 use chrono::DateTime;
 use rusqlite::{params, Connection};
 use crate::shared::errors::DbError;
-use crate::shared::models::FileRow;
+use crate::shared::models::{FileRow, UserRow};
 use crate::shared::utils;
+use argon2::{password_hash::{
+    SaltString,
+    rand_core::OsRng,
+}, Argon2, PasswordHasher};
 
 // Core logic for handling SQLite DB interactions
 pub fn init_db() -> Result<Connection, DbError> {
@@ -16,9 +20,19 @@ pub fn init_db() -> Result<Connection, DbError> {
             hash TEXT NOT NULL,
             last_modified TEXT NOT NULL,
             username TEXT NOT NULL
-        )",
+        );",
         params![],
     )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS users(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            password TEXT NOT NULL
+        );",
+        params![],
+    )?;
+
     Ok(conn)
 }
 
@@ -83,4 +97,44 @@ pub fn remove_file(conn: &Connection, path: &String, username: &String) -> Resul
     statement.execute(params![path, username])?;
 
     Ok(())
+}
+
+pub fn register_user(conn: &Connection, username: &String, password: &String) -> Result<(), DbError> {
+    let salt_string = SaltString::generate(&mut OsRng);
+    let argon2 = Argon2::default();
+
+    let password_hash = match argon2.hash_password(password.as_bytes(), &salt_string) {
+        Ok(hash) => hash.to_string(),
+        Err(e) => return Err(DbError::Custom(String::from(format!("Error with password generation: {}", e.to_string())))),
+    };
+
+    conn.execute(
+        "INSERT INTO users(username, password)\
+        VALUES (?1, ?2)",
+        params![username, password_hash],
+    )?;
+
+    Ok(())
+}
+
+pub fn find_user(conn: &Connection, username: &String) -> Result<Vec<UserRow>, DbError> {
+    let mut user_rows: Vec<UserRow> = Vec::new();
+
+    let mut statement = conn.prepare(
+        "SELECT username, password FROM users WHERE username=?1"
+    )?;
+
+    let mut rows = statement.query(params![username])?;
+
+    while let Some(row) = rows.next()? {
+        user_rows.push(
+            UserRow::new(
+                row.get(0)?,
+                row.get(1)?,
+            )
+        )
+    };
+
+    Ok(user_rows)
+
 }

@@ -41,3 +41,33 @@ impl From<chrono::ParseError> for DbError {
         DbError::ChronoError(err)
     }
 }
+
+#[derive(Debug)]
+pub enum AuthError {
+    UsernameNotFound,
+    PasswordNotFound,
+    IncorrectPassword,
+    Other(String)
+}
+
+impl Display for AuthError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AuthError::UsernameNotFound => write!(f, "Username not found"),
+            AuthError::PasswordNotFound => write!(f, "Password not found"),
+            AuthError::IncorrectPassword => {write!(f, "Incorrect password")}
+            AuthError::Other(e) => write!(f, "Other error {}", e),
+        }
+    }
+}
+
+impl Error for AuthError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            AuthError::UsernameNotFound => None,
+            AuthError::PasswordNotFound => None,
+            AuthError::IncorrectPassword => None,
+            AuthError::Other(_) => None,
+        }
+    }
+}

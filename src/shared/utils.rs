@@ -4,10 +4,13 @@ use std::path::{ PathBuf };
 use std::fs::File;
 use std::io::{BufReader, Read};
 use actix_web::HttpResponse;
+use argon2;
+use argon2::PasswordVerifier;
 use blake3;
 use chrono::{DateTime, Utc};
 use serde_json::json;
-use crate::shared::models::FileRow;
+use crate::shared::errors::AuthError;
+use crate::shared::models::{AuthRequest, FileRow};
 
 // Check if file path is valid
 pub fn check_file_path(path: &PathBuf) -> bool {
@@ -103,4 +106,31 @@ pub fn not_found_error(error: String) -> HttpResponse {
 
 pub fn bad_request_error(error: String) -> HttpResponse {
     HttpResponse::BadRequest().json(json!({ "status": "BAD_REQUEST", "error": error }))
+}
+
+pub fn conflict_error(error: String) -> HttpResponse {
+    HttpResponse::Conflict().json(json!({ "status": "CONFLICT", "error": error }))
+}
+
+// Extract user information and return specific error
+pub fn extract_user_info(request: &AuthRequest) -> Result<(String, String), AuthError> {
+    let username = match request.username.clone() {
+        Some(username) => username,
+        None => return Err(AuthError::UsernameNotFound)
+    };
+
+    let password = match request.password.clone() {
+        Some(password) => password,
+        None => return Err(AuthError::PasswordNotFound)
+    };
+
+    Ok((username, password))
+
+}
+
+pub fn check_password(password: &String, password_hash: &argon2::PasswordHash) -> bool {
+    match argon2::Argon2::default().verify_password(password.as_bytes(), password_hash) {
+        Ok(_) => true,
+        Err(_) => false
+    }
 }

@@ -3,11 +3,13 @@ mod client;
 mod server;
 mod shared;
 use std::path::PathBuf;
+use dotenv::dotenv;
 
 #[tokio::main]
 async fn main() {
     let mut args = std::env::args();
     let _ = args.next();
+    dotenv().ok();
 
     match args.next().as_deref() {
         Some("client") => {

@@ -67,5 +67,62 @@ impl FileRequest {
     }
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Claims {
+    pub sub: String,
+    pub exp: usize,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AuthRequest {
+    pub username: Option<String>,
+    pub password: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct UserRow {
+    username: String,
+    password: String,
+}
+
+impl UserRow {
+    pub fn new(username: String, password: String) -> Self {
+        Self { username, password }
+    }
+
+    pub fn username(&self) -> &str {
+        &self.username
+    }
+
+    pub fn password(&self) -> &str {
+        &self.password
+    }
+}
+
+// JWT claims
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserAccessToken {
+    pub sub: String,
+    pub exp: usize,
+}
+
+impl UserAccessToken {
+    pub fn new(sub: String, exp: usize) -> Self {
+        Self { sub, exp }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserRefreshToken {
+    pub sub: String,
+    pub exp: usize,
+}
+
+impl UserRefreshToken {
+    pub fn new(sub: String, exp: usize) -> Self {
+        Self { sub, exp }
+    }
+}
+
 
 
