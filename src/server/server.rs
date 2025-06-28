@@ -6,16 +6,9 @@ use std::sync::Mutex;
 use std::fs;
 use crate::server::config_loader;
 use std::io;
-use crate::server::handlers::auth::auth_extractor::AuthUser;
 use crate::shared::utils;
 
-pub async fn health(auth: AuthUser) -> impl Responder {
-    let user = auth.0;
-
-    println!("user: {:?}", user);
-
-    // Perform user lookup
-
+pub async fn health() -> impl Responder {
     utils::okay_response(None)
 }
 
