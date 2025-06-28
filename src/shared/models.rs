@@ -39,31 +39,15 @@ impl FileRow {
     }
 }
 
-#[derive(Debug, Deserialize)]
-pub struct QueryUsername {
-    username: Option<String>
-}
-
-impl QueryUsername {
-    pub fn username(&self) -> &Option<String> {
-        &self.username
-    }
-}
-
 
 #[derive(Debug, Deserialize)]
 pub struct FileRequest {
     path: Option<String>,
-    username: Option<String>
 }
 
 impl FileRequest {
     pub fn path(&self) -> &Option<String> {
         &self.path
-    }
-
-    pub fn username(&self) -> &Option<String> {
-        &self.username
     }
 }
 
@@ -77,6 +61,17 @@ pub struct Claims {
 pub struct AuthRequest {
     pub username: Option<String>,
     pub password: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RefreshRequest {
+    refresh_token: String,
+}
+
+impl RefreshRequest {
+    pub fn refresh_token(&self) -> &str {
+        &self.refresh_token
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

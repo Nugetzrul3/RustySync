@@ -3,14 +3,17 @@
 use std::path::{ PathBuf };
 use std::fs::File;
 use std::io::{BufReader, Read};
-use actix_web::HttpResponse;
+use actix_web::{HttpRequest, HttpResponse};
+use actix_web::http::header::Header;
+use actix_web_httpauth::headers::authorization::{Authorization, Bearer};
 use argon2;
 use argon2::PasswordVerifier;
 use blake3;
 use chrono::{DateTime, Utc};
+use jsonwebtoken::{DecodingKey, Validation};
 use serde_json::json;
 use crate::shared::errors::AuthError;
-use crate::shared::models::{AuthRequest, FileRow};
+use crate::shared::models::{AuthRequest, FileRow, UserAccessToken};
 
 // Check if file path is valid
 pub fn check_file_path(path: &PathBuf) -> bool {
@@ -133,4 +136,30 @@ pub fn check_password(password: &String, password_hash: &argon2::PasswordHash) -
         Ok(_) => true,
         Err(_) => false
     }
+}
+
+pub fn validate_token(request: &HttpRequest) -> Result<UserAccessToken, HttpResponse> {
+    let auth = match Authorization::<Bearer>::parse(request) {
+        Ok(auth) => auth,
+        Err(e) => {
+            eprintln!("Parse error {}", e);
+            return Err(internal_server_error(e.to_string()));
+        }
+    };
+
+    let auth_token = auth.as_ref().token();
+
+    let user_decoded = match jsonwebtoken::decode::<UserAccessToken>(
+        auth_token,
+        &DecodingKey::from_secret(std::env::var("JWT_SECRET").unwrap().as_ref()),
+        &Validation::default(),
+    ) {
+        Ok(decoded) => decoded,
+        Err(e) => {
+            eprintln!("JSON Web token authentication failed, {}", e);
+            return Err(bad_request_error(e.to_string()))
+        }
+    };
+
+    Ok(user_decoded.claims)
 }
