@@ -44,7 +44,7 @@ JWT_SECRET = "VERY_STRONG_SECRET_HERE"
   - Sync new files at startup using `walkdir`
   - Check hash and last modified time of existing files and update in DB
 
-- [ ] **HTTP Server (Actix-Web)**
+- [x] **HTTP Server (Actix-Web)**
   - Build a RESTful API to receive file uploads and metadata
   - Save received files and update server-side SQLite metadata
   - Securely authenticate users who wish to interact with the server
