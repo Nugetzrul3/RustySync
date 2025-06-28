@@ -146,7 +146,7 @@ pub async fn refresh(payload: web::Json<RefreshRequest>, conn: web::Data<Mutex<C
         Ok(user) => user,
         Err(e) => {
             eprintln!("JSON Web token authentication failed, {}", e);
-            return utils::bad_request_error(e.to_string());
+            return utils::authorization_error(e.to_string());
         }
     };
 

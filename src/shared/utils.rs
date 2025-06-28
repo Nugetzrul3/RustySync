@@ -115,6 +115,10 @@ pub fn conflict_error(error: String) -> HttpResponse {
     HttpResponse::Conflict().json(json!({ "status": "CONFLICT", "error": error }))
 }
 
+pub fn authorization_error(error: String) -> HttpResponse {
+    HttpResponse::Unauthorized().json(json!({ "status": "UNAUTHORIZED", "error": error }))
+}
+
 // Extract user information and return specific error
 pub fn extract_user_info(request: &AuthRequest) -> Result<(String, String), AuthError> {
     let username = match request.username.clone() {
@@ -157,7 +161,7 @@ pub fn validate_token(request: &HttpRequest) -> Result<UserAccessToken, HttpResp
         Ok(decoded) => decoded,
         Err(e) => {
             eprintln!("JSON Web token authentication failed, {}", e);
-            return Err(bad_request_error(e.to_string()))
+            return Err(authorization_error(e.to_string()))
         }
     };
 
