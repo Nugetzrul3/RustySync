@@ -20,25 +20,13 @@ use crate::shared::{
     utils
 };
 use crate::server::db;
-use crate::shared::models::QueryUsername;
+use crate::server::handlers::auth::auth_extractor::AuthUser;
 
-pub async fn health() -> impl Responder {
-    utils::okay_response(None)
-}
-
-pub async fn files(conn: web::Data<Mutex<Connection>>, query: web::Query<QueryUsername>) -> impl Responder {
+pub async fn files(auth: AuthUser, conn: web::Data<Mutex<Connection>>) -> impl Responder {
     let conn = conn.lock().unwrap();
-    let query = query.into_inner();
+    let user = auth.0;
 
-    let username = match query.username() {
-        Some(username) => username,
-        None => {
-            eprintln!("No username in request");
-            return utils::bad_request_error(String::from("No username in request"));
-        }
-    };
-
-    match db::get_files(&conn, &username) {
+    match db::get_files(&conn, &user.sub) {
         Ok(files) => utils::okay_response(Some(json!(files))),
         Err(e) => {
             eprintln!("{:?}", e);
@@ -48,9 +36,10 @@ pub async fn files(conn: web::Data<Mutex<Connection>>, query: web::Query<QueryUs
 
 }
 
-pub async fn file(query: web::Query<FileRequest>, conn: web::Data<Mutex<Connection>>) -> impl Responder {
+pub async fn file(auth: AuthUser, query: web::Query<FileRequest>, conn: web::Data<Mutex<Connection>>) -> impl Responder {
     let conn = conn.lock().unwrap();
     let query = query.into_inner();
+    let user = auth.0;
 
     let path = match query.path() {
         Some(path) => path,
@@ -60,19 +49,11 @@ pub async fn file(query: web::Query<FileRequest>, conn: web::Data<Mutex<Connecti
         }
     };
 
-    let username = match query.username() {
-        Some(username) => username,
-        None => {
-            eprintln!("No username in request");
-            return utils::bad_request_error(String::from("No username in request"));
-        }
-    };
-
-    let mut root_path = PathBuf::from(format!("uploads/{}", username));
+    let mut root_path = PathBuf::from(format!("uploads/{}", user.sub));
     root_path.push(path);
     let formatted_path = utils::format_file_path(&root_path.to_string_lossy().to_string());
 
-    let file_rows = match db::get_file(&conn, &formatted_path, &username) {
+    let file_rows = match db::get_file(&conn, &formatted_path, &user.sub) {
         Ok(file_rows) => file_rows,
         Err(e) => {
             eprintln!("Error fetching file");
@@ -90,21 +71,13 @@ pub async fn file(query: web::Query<FileRequest>, conn: web::Data<Mutex<Connecti
 
 }
 
-pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>, query: web::Query<QueryUsername>) -> impl Responder {
+pub async fn upload(auth: AuthUser, mut payload: Multipart, conn: web::Data<Mutex<Connection>>) -> impl Responder {
     let conn = conn.lock().unwrap();
     let mut files_success: HashMap<String, String> = HashMap::new();
     let mut files_failure: HashMap<String, String> = HashMap::new();
     let mut last_modified_map: HashMap<String, DateTime<Utc>> = HashMap::new();
     let mut file_path_map: HashMap<String, String> = HashMap::new();
-    let query = query.into_inner();
-
-    let username = match query.username() {
-        Some(username) => username,
-        None => {
-            eprintln!("No username found in request");
-            return utils::bad_request_error(String::from("No username in request"));
-        }
-    };
+    let username = auth.0.sub;
 
     // Iterate over the fields of the multipart file upload
     while let Ok(Some(mut field)) = payload.try_next().await {
@@ -293,9 +266,10 @@ pub async fn upload(mut payload: Multipart, conn: web::Data<Mutex<Connection>>, 
 
 }
 
-pub async fn delete(query: web::Query<FileRequest>, conn: web::Data<Mutex<Connection>>) -> impl Responder {
+pub async fn delete(auth: AuthUser, query: web::Query<FileRequest>, conn: web::Data<Mutex<Connection>>) -> impl Responder {
     let conn = conn.lock().unwrap();
     let query = query.into_inner();
+    let user = auth.0;
 
     let path = match query.path() {
         Some(path) => path,
@@ -305,15 +279,7 @@ pub async fn delete(query: web::Query<FileRequest>, conn: web::Data<Mutex<Connec
         }
     };
 
-    let username = match query.username() {
-        Some(username) => username,
-        None => {
-            eprintln!("No username found in request");
-            return utils::bad_request_error(String::from("No username found in request"));
-        }
-    };
-
-    let mut root = PathBuf::from(format!("uploads/{}", username));
+    let mut root = PathBuf::from(format!("uploads/{}", user.sub));
     root.push(path);
     let filtered_path = utils::format_file_path(&root.to_string_lossy().to_string());
 
@@ -331,7 +297,7 @@ pub async fn delete(query: web::Query<FileRequest>, conn: web::Data<Mutex<Connec
 
         utils::okay_response(None)
     } else {
-        let file_row = match db::get_file(&conn, &filtered_path, username) {
+        let file_row = match db::get_file(&conn, &filtered_path, &user.sub) {
             Ok(file_row) => file_row,
             Err(e) => {
                 eprintln!("Error fetching file row: {}", e.to_string());
@@ -352,7 +318,7 @@ pub async fn delete(query: web::Query<FileRequest>, conn: web::Data<Mutex<Connec
             }
 
             // Then remove entry from db
-            match db::remove_file(&conn, &filtered_path, username) {
+            match db::remove_file(&conn, &filtered_path, &user.sub) {
                 Ok(_) => {}
                 Err(e) => {
                     eprintln!("Error deleting file: {:?}", e);
