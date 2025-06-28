@@ -6,7 +6,7 @@ use std::path::{
 use std::sync::Mutex;
 use actix_multipart::Multipart;
 // File upload and download handlers
-use actix_web::{web, HttpRequest, Responder};
+use actix_web::{web, Responder};
 use futures_util::{StreamExt, TryStreamExt};
 use rusqlite::Connection;
 use serde_json::json;
@@ -14,32 +14,17 @@ use tokio::fs;
 use sanitize_filename;
 use tokio::io::AsyncWriteExt;
 use std::time::SystemTime;
-use actix_web::http::header::Header;
 use chrono::{DateTime, Utc };
 use crate::shared::{
     models::FileRequest,
     utils
 };
 use crate::server::db;
-pub async fn health(req: HttpRequest) -> impl Responder {
-    let user = match utils::validate_token(&req) {
-        Ok(user) => user,
-        Err(e) => return e,
-    };
+use crate::server::handlers::auth::auth_extractor::AuthUser;
 
-    println!("user: {:?}", user);
-
-    // Perform user lookup
-
-    utils::okay_response(None)
-}
-
-pub async fn files(req: HttpRequest, conn: web::Data<Mutex<Connection>>) -> impl Responder {
+pub async fn files(auth: AuthUser, conn: web::Data<Mutex<Connection>>) -> impl Responder {
     let conn = conn.lock().unwrap();
-    let user = match utils::validate_token(&req) {
-        Ok(user) => user,
-        Err(e) => return e,
-    };
+    let user = auth.0;
 
     match db::get_files(&conn, &user.sub) {
         Ok(files) => utils::okay_response(Some(json!(files))),
@@ -51,13 +36,10 @@ pub async fn files(req: HttpRequest, conn: web::Data<Mutex<Connection>>) -> impl
 
 }
 
-pub async fn file(req: HttpRequest, query: web::Query<FileRequest>, conn: web::Data<Mutex<Connection>>) -> impl Responder {
+pub async fn file(auth: AuthUser, query: web::Query<FileRequest>, conn: web::Data<Mutex<Connection>>) -> impl Responder {
     let conn = conn.lock().unwrap();
     let query = query.into_inner();
-    let user = match utils::validate_token(&req) {
-        Ok(user) => user,
-        Err(e) => return e,
-    };
+    let user = auth.0;
 
     let path = match query.path() {
         Some(path) => path,
@@ -89,18 +71,13 @@ pub async fn file(req: HttpRequest, query: web::Query<FileRequest>, conn: web::D
 
 }
 
-pub async fn upload(req: HttpRequest, mut payload: Multipart, conn: web::Data<Mutex<Connection>>) -> impl Responder {
+pub async fn upload(auth: AuthUser, mut payload: Multipart, conn: web::Data<Mutex<Connection>>) -> impl Responder {
     let conn = conn.lock().unwrap();
     let mut files_success: HashMap<String, String> = HashMap::new();
     let mut files_failure: HashMap<String, String> = HashMap::new();
     let mut last_modified_map: HashMap<String, DateTime<Utc>> = HashMap::new();
     let mut file_path_map: HashMap<String, String> = HashMap::new();
-    let user = match utils::validate_token(&req) {
-        Ok(user) => user,
-        Err(e) => return e,
-    };
-
-    let username = user.sub;
+    let username = auth.0.sub;
 
     // Iterate over the fields of the multipart file upload
     while let Ok(Some(mut field)) = payload.try_next().await {
@@ -289,13 +266,10 @@ pub async fn upload(req: HttpRequest, mut payload: Multipart, conn: web::Data<Mu
 
 }
 
-pub async fn delete(req: HttpRequest, query: web::Query<FileRequest>, conn: web::Data<Mutex<Connection>>) -> impl Responder {
+pub async fn delete(auth: AuthUser, query: web::Query<FileRequest>, conn: web::Data<Mutex<Connection>>) -> impl Responder {
     let conn = conn.lock().unwrap();
     let query = query.into_inner();
-    let user = match utils::validate_token(&req) {
-        Ok(user) => user,
-        Err(e) => return e
-    };
+    let user = auth.0;
 
     let path = match query.path() {
         Some(path) => path,

@@ -1,12 +1,23 @@
 // Main logic for hosting Actix-Web HTTP server
-use actix_web::{ web, App, HttpServer };
+use actix_web::{web, App, HttpServer, Responder};
 use crate::server::handlers::{ file, auth };
 use crate::server::db;
 use std::sync::Mutex;
 use std::fs;
 use crate::server::config_loader;
 use std::io;
-use rustls_pemfile;
+use crate::server::handlers::auth::auth_extractor::AuthUser;
+use crate::shared::utils;
+
+pub async fn health(auth: AuthUser) -> impl Responder {
+    let user = auth.0;
+
+    println!("user: {:?}", user);
+
+    // Perform user lookup
+
+    utils::okay_response(None)
+}
 
 // basic server health check route
 // main server startup
@@ -21,7 +32,7 @@ pub async fn start(port: u16) -> io::Result<()> {
         let server = HttpServer::new(move || {
             App::new()
                 .app_data(shared_conn.clone())
-                .route("/health", web::get().to(file::health))
+                .route("/health", web::get().to(health))
 
                 .route("/file/list", web::get().to(file::files))
                 .route("/file/metadata", web::get().to(file::file))
