@@ -13,9 +13,47 @@ async fn main() {
 
     match args.next().as_deref() {
         Some("client") => {
-            println!("Running client");
-            let path = args.next().expect("A client path is required");
-            client::run_client(PathBuf::from(path));
+
+            match args.next().as_deref() {
+                Some("start") => {
+                    println!("Running client");
+                    let path = args.next().expect("A client path is required");
+                    client::run_client(PathBuf::from(path));
+                }
+
+                Some("login") => {
+                    let username = args.next().expect("A client username is required");
+                    let password = args.next().expect("A client password is required");
+
+                    match client::login_user(username.as_str(), password.as_str()).await {
+                        Ok(_) => {},
+                        Err(e) => {
+                            eprintln!("Failed to login user, {:?}", e);
+                        }
+                    }
+
+                }
+
+                Some("register") => {
+
+                    let username = args.next().expect("A client username is required");
+                    let password = args.next().expect("A client password is required");
+
+                    match client::register_user(username.as_str(), password.as_str()).await {
+                        Ok(_) => {},
+                        Err(e) => {
+                            eprintln!("Failed to register user, {:?}", e);
+                        }
+                    }
+
+                }
+
+                _ => {
+                    print!("Invalid client argument")
+                }
+            }
+
+
         }
 
         Some("server") => {
