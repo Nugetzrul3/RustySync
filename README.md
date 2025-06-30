@@ -53,7 +53,7 @@ JWT_SECRET = "VERY_STRONG_SECRET_HERE"
   - Send file updates to the server when changes are detected
   - Retry on failure, parallelize uploads if possible
 
-- [ ] **CLI Interface**
+- [x] **CLI Interface**
   - Use `clap` to build a user-friendly CLI
   - Support flags like `--sync`, `--watch`, `--server`, etc.
      
