@@ -119,5 +119,31 @@ impl UserRefreshToken {
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct SuccessResponse {
+    pub message: String,
+    pub status: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ErrorResponse {
+    pub error: String,
+    pub status: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LoginTokenData {
+    pub access_token: String,
+    pub refresh_token: String,
+    pub token_type: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LoginResponse {
+    pub data: LoginTokenData,
+    pub message: String,
+    pub status: String,
+}
+
 
 

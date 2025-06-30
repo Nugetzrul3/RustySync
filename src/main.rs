@@ -4,36 +4,94 @@ mod server;
 mod shared;
 use std::path::PathBuf;
 use dotenv::dotenv;
+use clap::{ Parser, Subcommand };
+
+// Commands
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    mode: Mode
+}
+
+#[derive(Subcommand, Debug)]
+enum Mode {
+    Server {
+        #[arg(long)]
+        port: u16,
+    },
+
+    Client {
+        #[command(subcommand)]
+        command: Commands
+    }
+}
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    Register {
+        #[arg(long)]
+        username: String,
+
+        #[arg(long)]
+        password: String,
+    },
+
+    Login {
+        #[arg(long)]
+        username: String,
+
+        #[arg(long)]
+        password: String,
+    },
+
+    Start {
+        #[arg(long)]
+        path: String
+    }
+}
 
 #[tokio::main]
 async fn main() {
-    let mut args = std::env::args();
-    let _ = args.next();
     dotenv().ok();
 
-    match args.next().as_deref() {
-        Some("client") => {
-            println!("Running client");
-            let path = args.next().expect("A client path is required");
-            client::run_client(PathBuf::from(path));
-        }
+    // Use clap
+    let cli = Cli::parse();
 
-        Some("server") => {
-            let port: u16 = args
-                .next()
-                .expect("Port required")
-                .parse()
-                .expect("Port must be a number");
-
-            println!("Starting server with port {}", port);
+    match cli.mode {
+        Mode::Server { port } => {
+            println!("Starting server at port {}", port);
             if let Err(e) = server::start(port).await {
-                eprintln!("Server error{:?}", e);
+                eprintln!("Error starting server, {}", e);
             }
-
         }
 
-        _ => {
-            println!("Usage: cargo run -- client [path] or cargo run -- server [port]");
+        Mode::Client { command } => {
+            match command {
+                Commands::Register { username, password } => {
+                    match client::register_user(&username, &password).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!("Error registering user, {}", e);
+                        }
+                    }
+                }
+
+                Commands::Login { username, password } => {
+                    match client::login_user(&username, &password).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!("Error logging on user, {}", e);
+                        }
+                    }
+                }
+
+                Commands::Start { path } => {
+                    let watch_path = PathBuf::from(path);
+                    client::run_client(watch_path);
+                }
+            }
         }
     }
+
 }
