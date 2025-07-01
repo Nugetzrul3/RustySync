@@ -8,7 +8,7 @@ use chrono::{DateTime, Utc};
 use crate::shared::utils;
 use crate::client::db;
 
-pub fn sync(root: &PathBuf, conn: &Connection, init_dir: &PathBuf) {
+pub async fn sync(root: &PathBuf, conn: &Connection, init_dir: &PathBuf) {
     let mut file_paths: HashMap<String, u8> = HashMap::new();
     // Loop through files
     for entry in WalkDir::new(root)

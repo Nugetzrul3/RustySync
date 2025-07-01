@@ -190,7 +190,7 @@ pub async fn refresh(payload: web::Json<RefreshRequest>, conn: web::Data<Mutex<C
             {
                 "username": username,
                 "access_token": access_token,
-                "type": "bearer"
+                "token_type": "bearer"
             }
         )
     ))

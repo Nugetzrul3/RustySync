@@ -48,7 +48,8 @@ enum Commands {
     Start {
         #[arg(long)]
         path: String
-    }
+    },
+    Refresh
 }
 
 #[tokio::main]
@@ -88,7 +89,16 @@ async fn main() {
 
                 Commands::Start { path } => {
                     let watch_path = PathBuf::from(path);
-                    client::run_client(watch_path);
+                    client::run_client(watch_path).await;
+                }
+
+                Commands::Refresh => {
+                    match client::refresh_user().await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!("Error refreshing user, {}", e);
+                        }
+                    }
                 }
             }
         }

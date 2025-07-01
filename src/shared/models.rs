@@ -37,6 +37,10 @@ impl FileRow {
     pub fn set_last_modified(&mut self, last_modified: DateTime<Utc>) {
         self.last_modified = last_modified;
     }
+
+    pub fn set_path(&mut self, path: String) {
+        self.path = path;
+    }
 }
 
 
@@ -131,11 +135,17 @@ pub struct ErrorResponse {
     pub status: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct LoginTokenData {
     pub access_token: String,
     pub refresh_token: String,
     pub token_type: String,
+}
+
+impl LoginTokenData {
+    pub fn set_access_token(&mut self, access_token: String) {
+        self.access_token = access_token;
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -143,6 +153,20 @@ pub struct LoginResponse {
     pub data: LoginTokenData,
     pub message: String,
     pub status: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RefreshResponse {
+    pub data: RefreshData,
+    pub message: String,
+    pub status: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RefreshData {
+    pub username: String,
+    pub access_token: String,
+    pub token_type: String,
 }
 
 

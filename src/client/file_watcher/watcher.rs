@@ -11,11 +11,12 @@ use rusqlite::Connection;
 use crate::shared::utils;
 use crate::client::db;
 use crate::client::file_watcher::sync;
+use async_std::task;
 
-pub fn watch_path(watch_root: PathBuf, conn: &Connection, init_dir: &PathBuf) -> Result<()> {
+pub async fn watch_path(watch_root: PathBuf, conn: &Connection, init_dir: &PathBuf) -> Result<()> {
     // First sync files
     println!("Syncing directory {:?}", watch_root);
-    sync::sync(&watch_root, conn, init_dir);
+    sync::sync(&watch_root, conn, init_dir).await;
 
     // Channel to receive file change events
     let (tx, rx) = channel();
@@ -54,7 +55,7 @@ pub fn watch_path(watch_root: PathBuf, conn: &Connection, init_dir: &PathBuf) ->
                     if should_process {
                         last_event_times.insert(path.clone(), now);
 
-                        std::thread::sleep(Duration::from_millis(100));
+                        task::sleep(Duration::from_millis(100)).await;
                         let mut root_path = PathBuf::from(init_dir);
 
                         match &event.kind {
