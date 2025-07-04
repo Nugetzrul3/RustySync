@@ -167,3 +167,7 @@ pub fn validate_token(request: &HttpRequest) -> Result<UserAccessToken, HttpResp
 
     Ok(user_decoded.claims)
 }
+
+pub fn config_file_error() -> String {
+    String::from("Please set a URL before continuing")
+}

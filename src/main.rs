@@ -44,6 +44,10 @@ enum Commands {
         #[arg(long)]
         password: String,
     },
+    SetUrl {
+        #[arg(long)]
+        url: String,
+    },
 
     Start {
         #[arg(long)]
@@ -70,7 +74,7 @@ async fn main() {
         Mode::Client { command } => {
             match command {
                 Commands::Register { username, password } => {
-                    match client::register_user(&username, &password).await {
+                    match client::auth::register_user(&username, &password).await {
                         Ok(_) => {}
                         Err(e) => {
                             eprintln!("Error registering user, {}", e);
@@ -79,7 +83,7 @@ async fn main() {
                 }
 
                 Commands::Login { username, password } => {
-                    match client::login_user(&username, &password).await {
+                    match client::auth::login_user(&username, &password).await {
                         Ok(_) => {}
                         Err(e) => {
                             eprintln!("Error logging on user, {}", e);
@@ -93,10 +97,18 @@ async fn main() {
                 }
 
                 Commands::Refresh => {
-                    match client::refresh_user().await {
+                    match client::auth::refresh_user().await {
                         Ok(_) => {}
                         Err(e) => {
                             eprintln!("Error refreshing user, {}", e);
+                        }
+                    }
+                }
+                Commands::SetUrl { url } => {
+                    match client::save_url(url.as_str()).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            eprintln!("Error saving url, {}", e);
                         }
                     }
                 }
