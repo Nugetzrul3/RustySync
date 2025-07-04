@@ -169,5 +169,10 @@ pub struct RefreshData {
     pub token_type: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct Config {
+    pub url: String,
+}
+
 
 

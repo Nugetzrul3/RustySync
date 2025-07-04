@@ -140,7 +140,7 @@ pub async fn refresh(payload: web::Json<RefreshRequest>, conn: web::Data<Mutex<C
     let refresh_req = payload.0;
     let refresh_user = match jsonwebtoken::decode::<UserRefreshToken>(
         refresh_req.refresh_token(),
-        &DecodingKey::from_secret(std::env::var("JWT_SECRET").unwrap().as_ref()),
+        &DecodingKey::from_secret(std::env::var("JWT_SECRET").unwrap_or("JWT_SECRET".to_string()).as_ref()),
         &Validation::default(),
     ) {
         Ok(user) => user,
@@ -176,7 +176,7 @@ pub async fn refresh(payload: web::Json<RefreshRequest>, conn: web::Data<Mutex<C
     let access_token = match jsonwebtoken::encode(
         &Header::default(),
         &access_token_claim,
-        &EncodingKey::from_secret(std::env::var("JWT_SECRET").unwrap().as_ref())
+        &EncodingKey::from_secret(std::env::var("JWT_SECRET").unwrap_or("JWT_SECRET".to_string()).as_ref())
     ) {
         Ok(t) => t,
         Err(e) => {

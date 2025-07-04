@@ -1,8 +1,5 @@
 use std::collections::HashMap;
-use std::path::{
-    PathBuf,
-    Component::ParentDir
-};
+use std::path::{PathBuf, Component::ParentDir, Path};
 use std::sync::Mutex;
 use actix_multipart::Multipart;
 // File upload and download handlers
@@ -27,7 +24,15 @@ pub async fn files(auth: AuthUser, conn: web::Data<Mutex<Connection>>) -> impl R
     let user = auth.0;
 
     match db::get_files(&conn, &user.sub) {
-        Ok(files) => utils::okay_response(Some(json!(files))),
+        Ok(mut files) => {
+
+            for file in &mut files {
+                let stripped_path = PathBuf::from(file.path()).strip_prefix(format!("uploads/{}/", &user.sub).as_str()).unwrap().to_path_buf();
+                file.set_path(stripped_path.to_string_lossy().to_string());
+            }
+
+            utils::okay_response(Some(json!(files)))
+        },
         Err(e) => {
             eprintln!("{:?}", e);
             utils::internal_server_error(e.to_string())
@@ -62,7 +67,9 @@ pub async fn file(auth: AuthUser, query: web::Query<FileRequest>, conn: web::Dat
     };
 
     if file_rows.len() > 0 {
-        let file = file_rows.get(0).unwrap();
+        let mut file = file_rows.get(0).unwrap().clone();
+        let stripped_path = PathBuf::from(file.path()).strip_prefix(format!("uploads/{}/", &user.sub).as_str()).unwrap().to_path_buf();
+        file.set_path(stripped_path.to_string_lossy().to_string());
         utils::okay_response(Some(json!(file)))
 
     } else {

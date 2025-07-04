@@ -4,18 +4,37 @@ use crate::client::{
     db
 };
 use std::path::{ PathBuf };
-use std::fs;
+use tokio::fs;
+use std::error::Error;
+use serde_json::json;
+use tokio::io::AsyncWriteExt;
 
 pub async fn run_client(path: PathBuf) {
     println!("Starting client with path: {:?}", path);
     println!("Initialising DB...");
     if let Ok(conn) = db::init_db() {
-        let watch_root = fs::canonicalize(&path).unwrap();
+        let watch_root = fs::canonicalize(&path).await.unwrap();
         if let Err(e) = watcher::watch_path(watch_root, &conn, &path).await {
             eprintln!("{:?}", e);
         }
     } else {
         eprintln!("Initialization of DB failed");
     }
+
+}
+
+pub async fn save_url(url: &str) -> Result<(), Box<dyn Error>> {
+    let mut config_file = fs::File::options().create(true).write(true).open("config.json").await?;
+
+    let config = json!({
+        "url": url,
+    });
+
+    let config_string = serde_json::to_string_pretty(&config)?;
+
+    config_file.write_all(config_string.as_bytes()).await?;
+
+    Ok(())
+
 
 }

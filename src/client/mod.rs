@@ -3,6 +3,6 @@ mod file_watcher;
 mod db;
 mod apis;
 
-pub use client::run_client;
+pub use client::*;
 
-pub use apis::auth::*;
+pub use apis::auth;
