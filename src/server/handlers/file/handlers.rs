@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::{PathBuf, Component::ParentDir, Path};
+use std::path::{PathBuf, Component::ParentDir};
 use std::sync::Mutex;
 use actix_multipart::Multipart;
 // File upload and download handlers
@@ -113,6 +113,7 @@ pub async fn upload(auth: AuthUser, mut payload: Multipart, conn: web::Data<Mute
                 }
                 Err(e) => {
                     eprintln!("Failed to parse datetime for {}: {:?}", filename, e);
+                    files_failure.insert(filename.to_string(), e.to_string());
                 }
             }
 

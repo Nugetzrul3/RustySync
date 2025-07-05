@@ -13,7 +13,7 @@ use crate::shared::utils;
 use jsonwebtoken::{self, Header, EncodingKey, DecodingKey, Validation};
 use serde_json::json;
 
-const ACCESS_TOKEN_EXPIRY_SECONDS: usize = 60 * 15; // 15 minutes
+const ACCESS_TOKEN_EXPIRY_SECONDS: usize = 60 * 60; // 15 minutes
 const REFRESH_TOKEN_EXPIRY_SECONDS: usize = 60 * 60 * 24 * 7; // 7 days
 
 pub async fn register(payload: web::Json<AuthRequest>, conn: web::Data<Mutex<Connection>>) -> impl Responder {

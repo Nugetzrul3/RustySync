@@ -2,41 +2,23 @@ use reqwest;
 use serde_json::{
     json
 };
-use crate::shared::models::{Config, ErrorResponse, LoginResponse, LoginTokenData, RefreshResponse, SuccessResponse};
+use crate::shared::models::{ErrorResponse, LoginResponse, LoginTokenData, RefreshResponse, SuccessResponse};
 use tokio::{
     fs,
-    io::AsyncWriteExt,
+    io::{
+        AsyncWriteExt,
+        AsyncReadExt
+    },
 };
 use std::error::Error;
-use rusqlite::fallible_iterator::FallibleIterator;
-use tokio::io::AsyncReadExt;
 use crate::shared::utils;
 
 pub async fn login_user(username: &str, password: &str) -> Result<(), Box<dyn Error>> {
     println!("Logging into user {}", username);
-
-    // first load config
-    let mut config_file = match fs::File::open("config.json").await {
-        Ok(f) => f,
-        Err(e) => {
-            eprintln!("{}", utils::config_file_error());
-            return Err(Box::new(e));
-        }
-    };
-
-    let mut config_string = String::new();
-    config_file.read_to_string(&mut config_string).await?;
-    let config: Config = match serde_json::from_str(&config_string) {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("{}", utils::config_file_error());
-            return Err(Box::new(e));
-        }
-    };
-
+    let url = utils::load_url().await?;
     let client = reqwest::Client::new();
 
-    let resp = client.post(format!("{}/auth/login", config.url))
+    let resp = client.post(format!("{}/auth/login", url))
         .json(&json!(
             {
                 "username": username,
@@ -76,9 +58,10 @@ pub async fn login_user(username: &str, password: &str) -> Result<(), Box<dyn Er
 
 pub async fn register_user(username: &str, password: &str) -> Result<(), Box<dyn Error>> {
     println!("Registering user {} with {}", username, password);
+    let url = utils::load_url().await?;
     let client = reqwest::Client::new();
 
-    let resp = client.post("http://localhost:1234/auth/register")
+    let resp = client.post(format!("{}/auth/register", url))
         .json(&json!(
             {
                 "username": username,
@@ -102,6 +85,7 @@ pub async fn register_user(username: &str, password: &str) -> Result<(), Box<dyn
 
 pub async fn refresh_user() -> Result<(), Box<dyn Error>> {
     println!("Refreshing Access token");
+    let url = utils::load_url().await?;
     let client = reqwest::Client::new();
     let token_string = fs::read_to_string(&"token.json").await?;
     let mut token_file = fs::OpenOptions::new()
@@ -110,7 +94,7 @@ pub async fn refresh_user() -> Result<(), Box<dyn Error>> {
                             .open("token.json").await?;
     let mut token_json: LoginTokenData = serde_json::from_str(&token_string)?;
 
-    let resp = client.post("http://localhost:1234/auth/refresh")
+    let resp = client.post(format!("{}/auth/refresh", url))
         .json(&json!(
             {
                 "refresh_token": token_json.refresh_token,

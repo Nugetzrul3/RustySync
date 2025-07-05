@@ -2,6 +2,7 @@
 
 use std::path::{ PathBuf };
 use std::fs::File;
+use std::error::Error;
 use std::io::{BufReader, Read};
 use actix_web::{HttpRequest, HttpResponse};
 use actix_web::http::header::Header;
@@ -12,8 +13,10 @@ use blake3;
 use chrono::{DateTime, Utc};
 use jsonwebtoken::{DecodingKey, Validation};
 use serde_json::json;
+use tokio::fs;
+use tokio::io::AsyncReadExt;
 use crate::shared::errors::AuthError;
-use crate::shared::models::{AuthRequest, FileRow, UserAccessToken};
+use crate::shared::models::{AuthRequest, Config, FileRow, LoginTokenData, UserAccessToken};
 
 // Check if file path is valid
 pub fn check_file_path(path: &PathBuf) -> bool {
@@ -170,4 +173,39 @@ pub fn validate_token(request: &HttpRequest) -> Result<UserAccessToken, HttpResp
 
 pub fn config_file_error() -> String {
     String::from("Please set a URL before continuing")
+}
+
+pub async fn load_url() -> Result<String, Box<dyn Error>> {
+    // first load config
+    let mut config_file = match fs::File::open("config.json").await {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("{}", config_file_error());
+            return Err(Box::new(e));
+        }
+    };
+
+    let mut config_string = String::new();
+    config_file.read_to_string(&mut config_string).await?;
+    let config: Config = serde_json::from_str(&config_string)?;
+
+    Ok(config.url)
+}
+
+pub async fn load_access_token() -> Result<String, Box<dyn Error>> {
+    let mut token_file = match fs::File::open("token.json").await {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("Error opening token file");
+            return Err(Box::new(e));
+        }
+    };
+
+    let mut token_file_string = String::new();
+    token_file.read_to_string(&mut token_file_string).await?;
+
+    let token_data: LoginTokenData = serde_json::from_str(&token_file_string)?;
+
+    Ok(token_data.access_token)
+
 }
