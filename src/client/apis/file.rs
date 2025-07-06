@@ -11,6 +11,21 @@ use crate::shared::models::ErrorResponse;
 
 pub async fn delete_file(path: String) -> Result<(), Box<dyn Error>> {
     // To delete file
+    let url = utils::load_url().await?;
+    let access_token = utils::load_access_token().await?;
+    let client = reqwest::Client::new();
+
+    let delete_req = client.delete(format!("{}/file/delete?path={}", url, path))
+        .bearer_auth(&access_token)
+        .send()
+        .await?;
+
+    if !delete_req.status().is_success() {
+        let data = delete_req.json::<ErrorResponse>().await?;
+        eprintln!("Failed to delete file: {:?}", data.error);
+        return Err(Box::from(data.error));
+    }
+
     Ok(())
 }
 
@@ -67,11 +82,7 @@ async fn build_file_form(files: Vec<FileRow>) -> Result<multipart::Form, Box<dyn
 fn extract_filename_filepath(full_path: &String) -> (String, String) {
     let mut path_tokens = full_path.split("/").collect::<Vec<&str>>();
     let file_name = path_tokens.pop().unwrap();
-    let path = if path_tokens.len() > 2 {
-        path_tokens.join("/")
-    } else {
-        String::from("")
-    };
+    let path = path_tokens.join("/");
 
     (file_name.to_string(), path)
 }
