@@ -140,11 +140,16 @@ pub struct LoginTokenData {
     pub access_token: String,
     pub refresh_token: String,
     pub token_type: String,
+    pub expires_at: usize
 }
 
 impl LoginTokenData {
     pub fn set_access_token(&mut self, access_token: String) {
         self.access_token = access_token;
+    }
+
+    pub fn set_expires_at(&mut self, expires_at: usize) {
+        self.expires_at = expires_at;
     }
 }
 
@@ -167,6 +172,7 @@ pub struct RefreshData {
     pub username: String,
     pub access_token: String,
     pub token_type: String,
+    pub expires_at: usize
 }
 
 #[derive(Debug, Deserialize)]

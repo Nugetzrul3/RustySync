@@ -38,7 +38,8 @@ pub async fn login_user(username: &str, password: &str) -> Result<(), Box<dyn Er
         let json_data = json!({
             "access_token": data.data.access_token,
             "refresh_token": data.data.refresh_token,
-            "token_type": data.data.token_type
+            "token_type": data.data.token_type,
+            "expires_at": data.data.expires_at,
         });
 
         let json_data_string = serde_json::to_string_pretty(&json_data)?;
@@ -109,10 +110,12 @@ pub async fn refresh_user() -> Result<(), Box<dyn Error>> {
         let access_token = data.data.access_token;
 
         token_json.set_access_token(access_token);
+        token_json.set_expires_at(data.data.expires_at);
 
         let json_string = serde_json::to_string_pretty(&token_json)?;
 
         token_file.write_all(json_string.as_bytes()).await?;
+        token_file.flush().await?;
 
         Ok(())
     } else {

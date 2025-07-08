@@ -192,7 +192,7 @@ pub async fn load_url() -> Result<String, Box<dyn Error>> {
     Ok(config.url)
 }
 
-pub async fn load_access_token() -> Result<String, Box<dyn Error>> {
+pub async fn load_access_token() -> Result<(String, usize), Box<dyn Error>> {
     let mut token_file = match fs::File::open("token.json").await {
         Ok(f) => f,
         Err(e) => {
@@ -206,6 +206,13 @@ pub async fn load_access_token() -> Result<String, Box<dyn Error>> {
 
     let token_data: LoginTokenData = serde_json::from_str(&token_file_string)?;
 
-    Ok(token_data.access_token)
+    Ok((token_data.access_token, token_data.expires_at * 1000))
 
+}
+
+pub fn check_expiry_time(expires_at: usize) -> bool {
+    let now = Utc::now();
+    let expiry = DateTime::from_timestamp_millis(expires_at as i64).unwrap();
+
+    now.gt(&expiry)
 }

@@ -5,6 +5,7 @@ mod shared;
 use std::path::PathBuf;
 use dotenv::dotenv;
 use clap::{ Parser, Subcommand };
+use crate::client::apis;
 
 // Commands
 #[derive(Parser, Debug)]
@@ -74,7 +75,7 @@ async fn main() {
         Mode::Client { command } => {
             match command {
                 Commands::Register { username, password } => {
-                    match client::auth::register_user(&username, &password).await {
+                    match apis::auth::register_user(&username, &password).await {
                         Ok(_) => {}
                         Err(e) => {
                             eprintln!("Error registering user, {}", e);
@@ -83,7 +84,7 @@ async fn main() {
                 }
 
                 Commands::Login { username, password } => {
-                    match client::auth::login_user(&username, &password).await {
+                    match apis::auth::login_user(&username, &password).await {
                         Ok(_) => {}
                         Err(e) => {
                             eprintln!("Error logging on user, {}", e);
@@ -97,7 +98,7 @@ async fn main() {
                 }
 
                 Commands::Refresh => {
-                    match client::auth::refresh_user().await {
+                    match apis::auth::refresh_user().await {
                         Ok(_) => {}
                         Err(e) => {
                             eprintln!("Error refreshing user, {}", e);
