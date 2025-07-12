@@ -7,11 +7,11 @@ use tokio::{
     fs,
     io::{
         AsyncWriteExt,
-        AsyncReadExt
     },
 };
 use std::error::Error;
 use crate::shared::utils;
+use directories_next::ProjectDirs;
 
 pub async fn login_user(username: &str, password: &str) -> Result<(), Box<dyn Error>> {
     println!("Logging into user {}", username);
@@ -33,12 +33,17 @@ pub async fn login_user(username: &str, password: &str) -> Result<(), Box<dyn Er
         let data = resp.json::<LoginResponse>().await?;
         println!("{}! Logged in. Saving tokens...", data.message);
 
-        let mut token_file = fs::File::options().create(true).write(true).open("token.json").await?;
+        let project_dir = ProjectDirs::from("com", "Nugetzrul3", "RustySync").unwrap();
+        let config_dir = project_dir.config_dir();
+        fs::create_dir_all(config_dir).await?;
+
+        let mut token_file = fs::File::options().create(true).write(true).open(config_dir.join("token.json")).await?;
 
         let json_data = json!({
             "access_token": data.data.access_token,
             "refresh_token": data.data.refresh_token,
-            "token_type": data.data.token_type
+            "token_type": data.data.token_type,
+            "expires_at": data.data.expires_at,
         });
 
         let json_data_string = serde_json::to_string_pretty(&json_data)?;
@@ -87,11 +92,17 @@ pub async fn refresh_user() -> Result<(), Box<dyn Error>> {
     println!("Refreshing Access token");
     let url = utils::load_url().await?;
     let client = reqwest::Client::new();
-    let token_string = fs::read_to_string(&"token.json").await?;
+
+    let project_dir = ProjectDirs::from("com", "Nugetzrul3", "RustySync").unwrap();
+    let config_dir = project_dir.config_dir();
+    fs::create_dir_all(config_dir).await?;
+
+    let token_string = fs::read_to_string(config_dir.join("token.json")).await?;
+
     let mut token_file = fs::OpenOptions::new()
                             .write(true)
                             .read(true)
-                            .open("token.json").await?;
+                            .open(config_dir.join("token.json")).await?;
     let mut token_json: LoginTokenData = serde_json::from_str(&token_string)?;
 
     let resp = client.post(format!("{}/auth/refresh", url))
@@ -109,10 +120,12 @@ pub async fn refresh_user() -> Result<(), Box<dyn Error>> {
         let access_token = data.data.access_token;
 
         token_json.set_access_token(access_token);
+        token_json.set_expires_at(data.data.expires_at);
 
         let json_string = serde_json::to_string_pretty(&token_json)?;
 
         token_file.write_all(json_string.as_bytes()).await?;
+        token_file.flush().await?;
 
         Ok(())
     } else {

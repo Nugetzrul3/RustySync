@@ -9,11 +9,25 @@ use std::fs::File;
 use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 use crate::shared::utils;
-use crate::client::db;
-use crate::client::file_watcher::sync;
+use crate::client::{
+    file_watcher::sync,
+    db,
+    apis
+};
 use async_std::task;
+use directories_next::ProjectDirs;
+use crate::shared::models::FileRow;
 
 pub async fn watch_path(watch_root: PathBuf, conn: &Connection, init_dir: &PathBuf) -> Result<()> {
+    // Check if user has logged in yet
+    let project_dir = ProjectDirs::from("com", "Nugetzrul3", "RustySync").unwrap();
+    let config_dir = project_dir.config_dir();
+
+    if !config_dir.join("token.json").exists() {
+        eprintln!("WARNING: token.json does not exist, please login/register first");
+        return Ok(());
+    }
+
     // First sync files
     println!("Syncing directory {:?}", watch_root);
     sync::sync(&watch_root, conn, init_dir).await;
@@ -76,7 +90,8 @@ pub async fn watch_path(watch_root: PathBuf, conn: &Connection, init_dir: &PathB
 
                                     root_path.push(&relative_path);
                                     let file_path = utils::format_file_path(&root_path.to_string_lossy().to_string());
-                                    let file_rows = db::get_file(conn, &file_path).unwrap_or_else(|e| {
+                                    let root_dir = init_dir.to_string_lossy().to_string();
+                                    let file_rows = db::get_file(conn, &file_path, &root_dir).unwrap_or_else(|e| {
                                         eprintln!("Error getting file row: {}", e);
                                         Vec::new()
                                     });
@@ -91,9 +106,17 @@ pub async fn watch_path(watch_root: PathBuf, conn: &Connection, init_dir: &PathB
 
                                         file_row.set_last_modified(last_modified);
 
-                                        db::update_file(conn, file_row).unwrap_or_else(|e| {
+                                        db::update_file(conn, &file_row, &root_dir).unwrap_or_else(|e| {
                                             eprintln!("Error updating DB entries: {:?}", e);
                                         });
+
+                                        match apis::file::upload_files(file_rows).await {
+                                            Ok(_) => {}
+                                            Err(e) => {
+                                                eprintln!("Error uploading files: {}", e);
+                                                continue;
+                                            }
+                                        }
 
                                     } else {
                                         // This file doesnt exist, lets create an entry
@@ -104,9 +127,20 @@ pub async fn watch_path(watch_root: PathBuf, conn: &Connection, init_dir: &PathB
                                             last_modified
                                         );
 
-                                        db::insert_file(conn, &new_file_row).unwrap_or_else(|e| {
+                                        db::insert_file(conn, &new_file_row, &root_dir).unwrap_or_else(|e| {
                                             eprintln!("Failed to insert new: {:?}", e);
-                                        })
+                                        });
+
+                                        let mut files = Vec::<FileRow>::new();
+                                        files.push(new_file_row);
+
+                                        match apis::file::upload_files(files).await {
+                                            Ok(_) => {}
+                                            Err(e) => {
+                                                eprintln!("Error uploading files: {}", e);
+                                                continue;
+                                            }
+                                        }
                                     }
 
                                     root_path.clear();
@@ -126,11 +160,21 @@ pub async fn watch_path(watch_root: PathBuf, conn: &Connection, init_dir: &PathB
                                 };
                                 root_path.push(&relative_path);
                                 let file_path = utils::format_file_path(&root_path.to_string_lossy().to_string());
-                                db::remove_file(conn, &file_path).unwrap_or_else(|e| {
+                                let root_dir = init_dir.to_string_lossy().to_string();
+                                db::remove_file(conn, &file_path, &root_dir).unwrap_or_else(|e| {
                                     eprintln!("Failed to remove file: {:?}", e);
                                 });
                                 println!("Removed: {:?}", path);
                                 root_path.clear();
+
+                                match apis::file::delete_file(file_path).await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        eprintln!("Error deleting file: {}", e);
+                                        continue;
+                                    }
+                                }
+
                             }
 
                             _ => {

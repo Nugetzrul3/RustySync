@@ -128,7 +128,8 @@ pub async fn login(payload: web::Json<AuthRequest>, conn: web::Data<Mutex<Connec
             {
                 "access_token": access_token,
                 "refresh_token": refresh_token,
-                "token_type": "bearer"
+                "token_type": "bearer",
+                "expires_at": access_token_claim.exp,
             }
         )
     ))
@@ -190,7 +191,8 @@ pub async fn refresh(payload: web::Json<RefreshRequest>, conn: web::Data<Mutex<C
             {
                 "username": username,
                 "access_token": access_token,
-                "token_type": "bearer"
+                "token_type": "bearer",
+                "expires_at": access_token_claim.exp,
             }
         )
     ))

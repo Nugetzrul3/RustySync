@@ -2,5 +2,6 @@ CREATE TABLE IF NOT EXISTS files(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     path TEXT NOT NULL UNIQUE,
     hash TEXT NOT NULL,
-    last_modified TEXT NOT NULL
+    last_modified TEXT NOT NULL,
+    root_dir TEXT NOT NULL
 )
