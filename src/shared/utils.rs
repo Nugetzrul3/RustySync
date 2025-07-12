@@ -11,6 +11,7 @@ use argon2;
 use argon2::PasswordVerifier;
 use blake3;
 use chrono::{DateTime, Utc};
+use directories_next::ProjectDirs;
 use jsonwebtoken::{DecodingKey, Validation};
 use serde_json::json;
 use tokio::fs;
@@ -176,8 +177,17 @@ pub fn config_file_error() -> String {
 }
 
 pub async fn load_url() -> Result<String, Box<dyn Error>> {
+    // Get config dir
+    let config_dir = match get_config_path().await {
+        Some(path) => path,
+        None => {
+            eprintln!("Error finding config director");
+            return Err(Box::from("Error finding config director"));
+        }
+    };
+
     // first load config
-    let mut config_file = match fs::File::open("config.json").await {
+    let mut config_file = match fs::File::open(config_dir.join("config.json")).await {
         Ok(f) => f,
         Err(e) => {
             eprintln!("{}", config_file_error());
@@ -215,4 +225,18 @@ pub fn check_expiry_time(expires_at: usize) -> bool {
     let expiry = DateTime::from_timestamp_millis(expires_at as i64).unwrap();
 
     now.gt(&expiry)
+}
+
+pub async fn get_config_path() -> Option<PathBuf> {
+    let project_dir = ProjectDirs::from("com", "Nugetzrul3", "RustySync")?;
+    let config_dir = project_dir.config_dir();
+    match fs::create_dir_all(config_dir).await {
+        Ok(_) => {},
+        Err(e) => {
+            eprintln!("{}", e);
+            return None;
+        }
+    }
+
+    Some(config_dir.to_path_buf())
 }

@@ -8,6 +8,7 @@ use tokio::fs;
 use std::error::Error;
 use serde_json::json;
 use tokio::io::AsyncWriteExt;
+use crate::shared::utils;
 
 pub async fn run_client(path: PathBuf) {
     println!("Starting client with path: {:?}", path);
@@ -24,7 +25,14 @@ pub async fn run_client(path: PathBuf) {
 }
 
 pub async fn save_url(url: &str) -> Result<(), Box<dyn Error>> {
-    let mut config_file = fs::File::options().create(true).write(true).open("config.json").await?;
+    let config_dir = match utils::get_config_path().await {
+        Some(path) => path,
+        None => {
+            eprintln!("Error finding config directory");
+            return Err(Box::from("Error finding config directory"));
+        }
+    };
+    let mut config_file = fs::File::options().create(true).write(true).open(config_dir.join("config.json")).await?;
 
     let config = json!({
         "url": url,
