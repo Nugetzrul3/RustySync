@@ -11,12 +11,12 @@ pub async fn delete_file(path: String) -> Result<(), Box<dyn Error>> {
     // To delete file
     let url = utils::load_url().await?;
     let client = reqwest::Client::new();
-    let (mut access_token, mut expires_at) = utils::load_access_token().await?;
+    let (mut access_token, expires_at) = utils::load_access_token().await?;
 
     // token expired, call refresh then call api
     if utils::check_expiry_time(expires_at) {
         auth::refresh_user().await?;
-        (access_token, expires_at) = utils::load_access_token().await?;
+        access_token = utils::load_access_token().await?.0;
     }
 
     let delete_req = client.delete(
@@ -39,11 +39,11 @@ pub async fn upload_files(files: Vec<FileRow>) -> Result<(), Box<dyn Error>> {
     let url = utils::load_url().await?;
     let client = reqwest::Client::new();
     let files_form = build_file_form(files).await?;
-    let (mut access_token, mut expires_at) = utils::load_access_token().await?;
+    let (mut access_token, expires_at) = utils::load_access_token().await?;
 
     if utils::check_expiry_time(expires_at) {
         auth::refresh_user().await?;
-        (access_token, expires_at) = utils::load_access_token().await?;
+        access_token = utils::load_access_token().await?.0;
     }
 
     let upload_req = client.post(
@@ -53,27 +53,15 @@ pub async fn upload_files(files: Vec<FileRow>) -> Result<(), Box<dyn Error>> {
         .multipart(files_form)
         .send().await?;
 
-    println!("{}", upload_req.text().await?);
-
-    // if !upload_req.status().is_success() {
-    //     let data = upload_req.json::<ErrorResponse>().await?;
-    //     eprintln!("Failed to upload files: {:?}", data.error);
-    //     return Err(Box::from(data.error));
-    // }
+    if !upload_req.status().is_success() {
+        let data = upload_req.json::<ErrorResponse>().await?;
+        eprintln!("Failed to upload files: {:?}", data.error);
+        return Err(Box::from(data.error));
+    }
 
 
     Ok(())
 }
-
-// pub async fn get_files() -> Result<Vec<FileRow>, Box<dyn Error>> {
-//     // return list of all metadata for files belonging to that user
-//     Ok(Vec::<FileRow>::new())
-// }
-//
-// pub async fn get_file(path: String) -> Result<FileRow, Box<dyn Error>> {
-//     // Get specific file metadata
-//     Ok(FileRow::new(String::new(), String::new(), Utc::now()))
-// }
 
 
 // Utility functions for file uploads
