@@ -49,9 +49,8 @@ JWT_SECRET = "VERY_STRONG_SECRET_HERE"
   - Save received files and update server-side SQLite metadata
   - Securely authenticate users who wish to interact with the server
 
-- [ ] **Sync Client**
+- [x] **Sync Client**
   - Send file updates to the server when changes are detected
-  - Retry on failure, parallelize uploads if possible
 
 - [x] **CLI Interface**
   - Use `clap` to build a user-friendly CLI
@@ -59,4 +58,9 @@ JWT_SECRET = "VERY_STRONG_SECRET_HERE"
      
 - [ ] **Cross-platform Support**
   - Test on Linux, macOS, and Windows
+
+
+### Future considerations
+- Sync client: Retry on failure, parallelize uploads if possible (future consideration)
+- Web server: Track historical versions of files
 
