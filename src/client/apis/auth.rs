@@ -11,9 +11,21 @@ use tokio::{
 };
 use std::error::Error;
 use crate::shared::utils;
-use directories_next::ProjectDirs;
 
 pub async fn login_user(username: &str, password: &str) -> Result<(), Box<dyn Error>> {
+    let config_dir = match utils::get_config_path().await {
+        Some(config_dir) => config_dir,
+        None => {
+            eprintln!("Error finding config path");
+            return Ok(())
+        }
+    };
+
+    if !config_dir.join("config.json").exists() {
+        eprintln!("Config json does not exist. You probably haven't set a server URL yet (client set-url --url [server-url])");
+        return Ok(())
+    }
+
     println!("Logging into user {}", username);
     let url = utils::load_url().await?;
     let client = reqwest::Client::new();
@@ -32,10 +44,6 @@ pub async fn login_user(username: &str, password: &str) -> Result<(), Box<dyn Er
     if resp.status().is_success() {
         let data = resp.json::<LoginResponse>().await?;
         println!("{}! Logged in. Saving tokens...", data.message);
-
-        let project_dir = ProjectDirs::from("com", "Nugetzrul3", "RustySync").unwrap();
-        let config_dir = project_dir.config_dir();
-        fs::create_dir_all(config_dir).await?;
 
         let mut token_file = fs::File::options().create(true).write(true).open(config_dir.join("token.json")).await?;
 
@@ -62,6 +70,19 @@ pub async fn login_user(username: &str, password: &str) -> Result<(), Box<dyn Er
 }
 
 pub async fn register_user(username: &str, password: &str) -> Result<(), Box<dyn Error>> {
+    let config_dir = match utils::get_config_path().await {
+        Some(config_dir) => config_dir,
+        None => {
+            eprintln!("Error finding config path");
+            return Err(Box::from("Error finding config path"));
+        }
+    };
+
+    if !config_dir.join("config.json").exists() {
+        eprintln!("Config json does not exist. You probably haven't set a server URL yet (client set-url --url [server-url])");
+        return Ok(())
+    }
+
     println!("Registering user {} with {}", username, password);
     let url = utils::load_url().await?;
     let client = reqwest::Client::new();
@@ -89,13 +110,22 @@ pub async fn register_user(username: &str, password: &str) -> Result<(), Box<dyn
 }
 
 pub async fn refresh_user() -> Result<(), Box<dyn Error>> {
+    let config_dir = match utils::get_config_path().await {
+        Some(config_dir) => config_dir,
+        None => {
+            eprintln!("Error finding config path");
+            return Err(Box::from("Error finding config path"));
+        }
+    };
+
+    if !config_dir.join("config.json").exists() {
+        eprintln!("Config json does not exist. You probably haven't set a server URL yet (client set-url --url [server-url])");
+        return Ok(())
+    }
+
     println!("Refreshing Access token");
     let url = utils::load_url().await?;
     let client = reqwest::Client::new();
-
-    let project_dir = ProjectDirs::from("com", "Nugetzrul3", "RustySync").unwrap();
-    let config_dir = project_dir.config_dir();
-    fs::create_dir_all(config_dir).await?;
 
     let token_string = fs::read_to_string(config_dir.join("token.json")).await?;
 

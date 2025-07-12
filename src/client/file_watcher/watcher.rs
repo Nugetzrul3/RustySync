@@ -15,17 +15,26 @@ use crate::client::{
     apis
 };
 use async_std::task;
-use directories_next::ProjectDirs;
 use crate::shared::models::FileRow;
 
 pub async fn watch_path(watch_root: PathBuf, conn: &Connection, init_dir: &PathBuf) -> Result<()> {
     // Check if user has logged in yet
-    let project_dir = ProjectDirs::from("com", "Nugetzrul3", "RustySync").unwrap();
-    let config_dir = project_dir.config_dir();
+    let config_dir = match utils::get_config_path().await {
+        Some(config_dir) => config_dir,
+        None => {
+            eprintln!("Error finding config path");
+            return Ok(())
+        }
+    };
+
+    if !config_dir.join("config.json").exists() {
+        eprintln!("Config json does not exist. You probably haven't set a server URL yet (client set-url --url [server-url])");
+        return Ok(())
+    }
 
     if !config_dir.join("token.json").exists() {
         eprintln!("WARNING: token.json does not exist, please login/register first");
-        return Ok(());
+        return Ok(())
     }
 
     // First sync files
