@@ -21,8 +21,11 @@ Built to demonstrate efficient file I/O, concurrency, and network communication 
 
 ### Options for client
 `set-url --url [url]`: Sets the current API url to send requests too
+
 `login --username [username] --password [password]`: Login to the server
+
 `register --username [username] --password [password]`: Register an account with server
+
 `start --path [path]`: Start the file watcher
 
 To start the file watcher, you need to have set the API url as well as have logged in to the server to get an access token
