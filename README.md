@@ -31,7 +31,7 @@ Built to demonstrate efficient file I/O, concurrency, and network communication 
 To start the file watcher, you need to have set the API url as well as have logged in to the server to get an access token
 
 # Running server
-`.\target\[build variant]\RustySync.exe server [port]`
+`.\target\[build variant]\RustySync.exe server --port [port]`
 
 ### Before running server, create .env
 ```text
