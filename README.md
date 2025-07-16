@@ -17,7 +17,15 @@ Built to demonstrate efficient file I/O, concurrency, and network communication 
 2. Run `cargo build` (or `cargo build --release` if you want release build)
 
 # Running client
-`.\target\[build variant]\RustySync.exe client [path]`
+`.\target\[build variant]\RustySync.exe client [options]`
+
+### Options for client
+`set-url --url [url]`: Sets the current API url to send requests too
+`login --username [username] --password [password]`: Login to the server
+`register --username [username] --password [password]`: Register an account with server
+`start --path [path]`: Start the file watcher
+
+To start the file watcher, you need to have set the API url as well as have logged in to the server to get an access token
 
 # Running server
 `.\target\[build variant]\RustySync.exe server [port]`
@@ -26,6 +34,9 @@ Built to demonstrate efficient file I/O, concurrency, and network communication 
 ```text
 JWT_SECRET = "VERY_STRONG_SECRET_HERE"
 ```
+
+#### Optionally run server with HTTPS
+You can also run the server using HTTPS. This can be done by creating a `certs` folder that has the `cert.pem` and `key.pem`. You can use a tool like `mkcert` to create these files
 
 # Roadmap
 - [x] **File Watcher**
