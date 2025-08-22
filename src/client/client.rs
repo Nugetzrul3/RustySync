@@ -11,6 +11,11 @@ use tokio::io::AsyncWriteExt;
 use crate::shared::utils;
 
 pub async fn run_client(path: PathBuf) {
+    if !path.exists() {
+        eprintln!("Path does not exist!");
+        return;
+    }
+
     println!("Starting client with path: {:?}", path);
     println!("Initialising DB...");
     if let Ok(conn) = db::init_db() {

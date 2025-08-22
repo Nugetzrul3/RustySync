@@ -77,4 +77,5 @@ You can also run the server using HTTPS. This can be done by creating a `certs` 
 ### Future considerations
 - Sync client: Retry on failure, parallelize uploads if possible (future consideration)
 - Web server: Track historical versions of files
+- Sync server with client: Server listens for file changes on uploads and client requests new files/modifications if any
 
