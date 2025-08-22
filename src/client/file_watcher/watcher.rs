@@ -51,21 +51,14 @@ pub async fn watch_path(watch_root: PathBuf, conn: &Connection, init_dir: &PathB
 
     println!("Watching for changes in {:?}", watch_root);
 
-    // Implement debouncer:
-    // A debouncer is a concept used in programming where we want to
-    // filter out multiple calls to a function or event so that it
-    // will only run once during a certain time threshold. In this
-    // instance, we will implement one for the Modify event
-
     let debounce_time = Duration::from_millis(500);
     let mut last_event_times = HashMap::<PathBuf, Instant>::new();
 
-    // Loop events that are being received in the channel
     for res in rx {
         match res {
             Ok(event) => {
                 for path in event.paths {
-                    if !utils::check_file_path(&path) {
+                    if !utils::check_file_path_safe(&path) {
                         continue;
                     }
 
@@ -83,123 +76,178 @@ pub async fn watch_path(watch_root: PathBuf, conn: &Connection, init_dir: &PathB
 
                         match &event.kind {
                             EventKind::Create(_) | EventKind::Modify(_) => {
-                                let file = File::open(&path)?;
-                                if let Some(hash) = utils::hash_file(&file) {
-                                    println!("File {} at {:?} with hash {}",
-                                    if matches!(event.kind, EventKind::Modify(_)) { "Modified" } else { "Created" },
-                                    path, hash);
-
-                                    let relative_path = match path.strip_prefix(&watch_root) {
-                                        Ok(p) => p.to_path_buf(),
-                                        Err(_) => {
-                                            eprintln!("Failed to get relative path for {:?}", path);
-                                            continue;
-                                        }
-                                    };
-
-                                    root_path.push(&relative_path);
-                                    let file_path = utils::format_file_path(&root_path.to_string_lossy().to_string());
-                                    let root_dir = init_dir.to_string_lossy().to_string();
-                                    let file_rows = db::get_file(conn, &file_path, &root_dir).unwrap_or_else(|e| {
-                                        eprintln!("Error getting file row: {}", e);
-                                        Vec::new()
-                                    });
-                                    let file_metadata = file.metadata()?;
-                                    let last_modified = DateTime::<Utc>::from(file_metadata.modified()?);
-                                    if file_rows.len() > 0 {
-                                        // A file exists in our db, lets update it
-                                        let mut file_row = file_rows.get(0).unwrap().clone();
-                                        if file_row.hash() != hash {
-                                            file_row.set_hash(hash);
-                                        }
-
-                                        file_row.set_last_modified(last_modified);
-
-                                        db::update_file(conn, &file_row, &root_dir).unwrap_or_else(|e| {
-                                            eprintln!("Error updating DB entries: {:?}", e);
-                                        });
-
-                                        match apis::file::upload_files(file_rows).await {
-                                            Ok(_) => {}
-                                            Err(e) => {
-                                                eprintln!("Error uploading files: {}", e);
-                                                continue;
-                                            }
-                                        }
-
-                                    } else {
-                                        // This file doesnt exist, lets create an entry
-
-                                        let new_file_row = utils::convert_to_file_row(
-                                            file_path,
-                                            hash,
-                                            last_modified
-                                        );
-
-                                        db::insert_file(conn, &new_file_row, &root_dir).unwrap_or_else(|e| {
-                                            eprintln!("Failed to insert new: {:?}", e);
-                                        });
-
-                                        let mut files = Vec::<FileRow>::new();
-                                        files.push(new_file_row);
-
-                                        match apis::file::upload_files(files).await {
-                                            Ok(_) => {}
-                                            Err(e) => {
-                                                eprintln!("Error uploading files: {}", e);
-                                                continue;
-                                            }
-                                        }
+                                match handle_file_create_modify(&path, &watch_root, &mut root_path, conn, init_dir, &event.kind).await {
+                                    Ok(_) => {},
+                                    Err(e) => {
+                                        eprintln!("Error handling file create/modify for {:?}: {}", path, e);
+                                        continue;
                                     }
-
-                                    root_path.clear();
-
-                                } else {
-                                    println!("Failed to hash file");
                                 }
                             }
 
                             EventKind::Remove(_) => {
-                                let relative_path = match path.strip_prefix(&watch_root) {
-                                    Ok(p) => p.to_path_buf(),
-                                    Err(_) => {
-                                        eprintln!("Failed to get relative path for {:?}", path);
-                                        continue;
-                                    }
-                                };
-                                root_path.push(&relative_path);
-                                let file_path = utils::format_file_path(&root_path.to_string_lossy().to_string());
-                                let root_dir = init_dir.to_string_lossy().to_string();
-                                db::remove_file(conn, &file_path, &root_dir).unwrap_or_else(|e| {
-                                    eprintln!("Failed to remove file: {:?}", e);
-                                });
-                                println!("Removed: {:?}", path);
-                                root_path.clear();
-
-                                match apis::file::delete_file(file_path).await {
-                                    Ok(_) => {}
+                                match handle_file_remove(&path, &watch_root, &mut root_path, conn, init_dir).await {
+                                    Ok(_) => {},
                                     Err(e) => {
-                                        eprintln!("Error deleting file: {}", e);
+                                        eprintln!("Error handling file remove for {:?}: {}", path, e);
                                         continue;
                                     }
                                 }
-
                             }
 
                             _ => {
-
                             }
                         }
                     }
-
-
                 }
-
             }
-            Err(e) => println!("watch error: {:?}", e)
+            Err(e) => {
+                eprintln!("Watch error: {:?}", e);
+            }
         }
     }
 
     Ok(())
+}
 
+async fn handle_file_create_modify(
+    path: &PathBuf,
+    watch_root: &PathBuf,
+    root_path: &mut PathBuf,
+    conn: &Connection,
+    init_dir: &PathBuf,
+    event_kind: &EventKind
+) -> std::result::Result<(), Box<dyn std::error::Error>> {
+    if !path.exists() {
+        return Ok(());
+    }
+
+    let file = match File::open(&path) {
+        Ok(file) => file,
+        Err(e) => {
+            eprintln!("Failed to open file {:?}: {}", path, e);
+            return Ok(());
+        }
+    };
+
+    let hash = match utils::hash_file(&file) {
+        Some(hash) => hash,
+        None => {
+            eprintln!("Failed to hash file {:?}", path);
+            return Ok(());
+        }
+    };
+
+    println!("File {} at {:?} with hash {}",
+             if matches!(event_kind, EventKind::Modify(_)) { "Modified" } else { "Created" },
+             path, hash);
+
+    let relative_path = match path.strip_prefix(&watch_root) {
+        Ok(p) => p.to_path_buf(),
+        Err(_) => {
+            eprintln!("Failed to get relative path for {:?}", path);
+            return Ok(());
+        }
+    };
+
+    root_path.push(&relative_path);
+    let file_path = utils::format_file_path(&root_path.to_string_lossy().to_string());
+    let root_dir = init_dir.to_string_lossy().to_string();
+
+    let file_rows = db::get_file(conn, &file_path, &root_dir).unwrap_or_else(|e| {
+        eprintln!("Error getting file row: {}", e);
+        Vec::new()
+    });
+
+    let file_metadata = match file.metadata() {
+        Ok(metadata) => metadata,
+        Err(e) => {
+            eprintln!("Failed to get file metadata for {:?}: {}", path, e);
+            return Ok(());
+        }
+    };
+
+    let last_modified = match file_metadata.modified() {
+        Ok(modified) => DateTime::<Utc>::from(modified),
+        Err(e) => {
+            eprintln!("Failed to get modification time for {:?}: {}", path, e);
+            return Ok(());
+        }
+    };
+
+    if file_rows.len() > 0 {
+        // Update existing file
+        let mut file_row = file_rows.get(0).unwrap().clone();
+        if file_row.hash() != hash {
+            file_row.set_hash(hash);
+        }
+        file_row.set_last_modified(last_modified);
+
+        db::update_file(conn, &file_row, &root_dir).unwrap_or_else(|e| {
+            eprintln!("Error updating DB entries: {:?}", e);
+        });
+
+        match apis::file::upload_files(file_rows).await {
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("Error uploading files: {}", e);
+            }
+        }
+    } else {
+        // Create new file entry
+        let new_file_row = utils::convert_to_file_row(file_path, hash, last_modified);
+
+        db::insert_file(conn, &new_file_row, &root_dir).unwrap_or_else(|e| {
+            eprintln!("Failed to insert new: {:?}", e);
+        });
+
+        let mut files = Vec::<FileRow>::new();
+        files.push(new_file_row);
+
+        match apis::file::upload_files(files).await {
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("Error uploading files: {}", e);
+            }
+        }
+    }
+
+    root_path.clear();
+    Ok(())
+}
+
+async fn handle_file_remove(
+    path: &PathBuf,
+    watch_root: &PathBuf,
+    root_path: &mut PathBuf,
+    conn: &Connection,
+    init_dir: &PathBuf
+) -> std::result::Result<(), Box<dyn std::error::Error>> {
+    let relative_path = match path.strip_prefix(&watch_root) {
+        Ok(p) => p.to_path_buf(),
+        Err(_) => {
+            eprintln!("Failed to get relative path for {:?}", path);
+            return Ok(());
+        }
+    };
+
+    root_path.push(&relative_path);
+    let file_path = utils::format_file_path(&root_path.to_string_lossy().to_string());
+    let root_dir = init_dir.to_string_lossy().to_string();
+
+    db::remove_file(conn, &file_path, &root_dir).unwrap_or_else(|e| {
+        eprintln!("Failed to remove file: {:?}", e);
+    });
+
+    println!("Removed: {:?}", path);
+    root_path.clear();
+
+    match apis::file::delete_file(file_path).await {
+        Ok(_) => {}
+        Err(e) => {
+            eprintln!("Error deleting file: {}", e);
+        }
+    }
+
+    Ok(())
 }

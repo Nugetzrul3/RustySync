@@ -19,7 +19,6 @@ use tokio::io::AsyncReadExt;
 use crate::shared::errors::AuthError;
 use crate::shared::models::{AuthRequest, Config, FileRow, LoginTokenData, UserAccessToken};
 
-// Check if file path is valid
 pub fn check_file_path(path: &PathBuf) -> bool {
     if path.is_dir() {
         return false;
@@ -35,20 +34,67 @@ pub fn check_file_path(path: &PathBuf) -> bool {
     true
 }
 
+pub fn check_file_path_safe(path: &PathBuf) -> bool {
+    // First check if the path exists
+    if !path.exists() {
+        // For remove events, we still want to process them even if the file doesn't exist
+        // So we'll do a basic filename check without filesystem operations
+        return check_filename_only(path);
+    }
+
+    // Use metadata() instead of is_dir() for better error handling
+    match path.metadata() {
+        Ok(metadata) => {
+            // Skip directories
+            if metadata.is_dir() {
+                return false;
+            }
+        }
+        Err(_) => {
+            // If we can't get metadata, fall back to filename check
+            return check_filename_only(path);
+        }
+    }
+
+    check_filename_only(path)
+}
+
+fn check_filename_only(path: &PathBuf) -> bool {
+    let invalid_suffixes = ["~", ".tmp", ".swp"];
+    let file_name = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+
+    // Skip hidden files and system files
+    if file_name.starts_with('.') && !file_name.starts_with("..") {
+        return false;
+    }
+
+    // Skip temporary files
+    if invalid_suffixes.iter().any(|suffix| file_name.ends_with(suffix)) {
+        return false;
+    }
+
+    // Skip empty filenames
+    if file_name.is_empty() {
+        return false;
+    }
+
+    true
+}
+
 pub fn hash_file(file: &File) -> Option<String> {
     let mut reader = BufReader::new(file);
     let mut hasher = blake3::Hasher::new();
-
     let mut buf = [0u8; 8192];
 
     loop {
         let bytes_read = match reader.read(&mut buf) {
             Ok(n) => n,
             Err(e) => {
-                eprintln!("Read error: {:?}", e);
+                eprintln!("Read error during hashing: {:?}", e);
                 return None;
             }
         };
+
         if bytes_read == 0 {
             break;
         }
@@ -60,28 +106,21 @@ pub fn hash_file(file: &File) -> Option<String> {
 }
 
 pub fn hash_filepath(filepath: &PathBuf) -> Option<String> {
-    let file = File::open(filepath).ok()?;
-    let mut reader = BufReader::new(file);
-    let mut hasher = blake3::Hasher::new();
-
-    let mut buf = [0u8; 8192];
-
-    loop {
-        let bytes_read = match reader.read(&mut buf) {
-            Ok(n) => n,
-            Err(e) => {
-                eprintln!("Read error: {:?}", e);
-                return None;
-            }
-        };
-        if bytes_read == 0 {
-            break;
-        }
-
-        hasher.update(&buf[..bytes_read]);
+    // Check if file exists first
+    if !filepath.exists() {
+        eprintln!("File does not exist: {:?}", filepath);
+        return None;
     }
 
-    Some(hasher.finalize().to_hex().to_string())
+    let file = match File::open(filepath) {
+        Ok(file) => file,
+        Err(e) => {
+            eprintln!("Failed to open file for hashing: {:?}, error: {}", filepath, e);
+            return None;
+        }
+    };
+
+    hash_file(&file)
 }
 
 pub fn format_file_path(path: &String) -> String {
@@ -123,7 +162,6 @@ pub fn authorization_error(error: String) -> HttpResponse {
     HttpResponse::Unauthorized().json(json!({ "status": "UNAUTHORIZED", "error": error }))
 }
 
-// Extract user information and return specific error
 pub fn extract_user_info(request: &AuthRequest) -> Result<(String, String), AuthError> {
     let username = match request.username.clone() {
         Some(username) => username,
@@ -136,7 +174,6 @@ pub fn extract_user_info(request: &AuthRequest) -> Result<(String, String), Auth
     };
 
     Ok((username, password))
-
 }
 
 pub fn check_password(password: &String, password_hash: &argon2::PasswordHash) -> bool {
@@ -177,7 +214,6 @@ pub fn config_file_error() -> String {
 }
 
 pub async fn load_url() -> Result<String, Box<dyn Error>> {
-    // Get config dir
     let config_dir = match get_config_path().await {
         Some(path) => path,
         None => {
@@ -186,7 +222,6 @@ pub async fn load_url() -> Result<String, Box<dyn Error>> {
         }
     };
 
-    // first load config
     let mut config_file = match fs::File::open(config_dir.join("config.json")).await {
         Ok(f) => f,
         Err(e) => {
@@ -203,7 +238,15 @@ pub async fn load_url() -> Result<String, Box<dyn Error>> {
 }
 
 pub async fn load_access_token() -> Result<(String, usize), Box<dyn Error>> {
-    let mut token_file = match fs::File::open("token.json").await {
+    let config_dir = match get_config_path().await {
+        Some(config_dir) => config_dir,
+        None => {
+            eprintln!("Error finding config path");
+            return Err(Box::from("Error finding config path"));
+        }
+    };
+
+    let mut token_file = match fs::File::open(config_dir.join("token.json")).await {
         Ok(f) => f,
         Err(e) => {
             eprintln!("Error opening token file");
@@ -217,7 +260,6 @@ pub async fn load_access_token() -> Result<(String, usize), Box<dyn Error>> {
     let token_data: LoginTokenData = serde_json::from_str(&token_file_string)?;
 
     Ok((token_data.access_token, token_data.expires_at * 1000))
-
 }
 
 pub fn check_expiry_time(expires_at: usize) -> bool {
