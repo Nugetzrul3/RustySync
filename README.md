@@ -4,13 +4,28 @@ It monitors a local folder and synchronises changes to a remote server like a li
 Built to demonstrate efficient file I/O, concurrency, and network communication in Rust.
 
 # Dependencies
-- `clap` >= 4.5.32
+- `clap` >= 4.5.32 (with derive features)
 - `notify` >= 8.0.0
-- `blake3` >= 1.8.2
-- `actix-web` >= 4.10.2
-- `serde` >= 1.0.219
+- `blake3` >= 1.6.1
+- `actix-web` >= 4.10.2 (with rustls-0_23 features)
+- `actix-web-httpauth` >= 0.8.2
+- `actix-multipart` >= 0.7.2
+- `serde` >= 1.0.219 (with derive features)
 - `serde_json` >= 1.0.140
-- `rusqlite` >= 0.34.0
+- `tokio` >= 1.45.1 (with macros, rt-multi-thread, fs features)
+- `rusqlite` >= 0.36.0 (with bundled features)
+- `chrono` >= 0.4.41 (with serde features)
+- `futures-util` >= 0.3.31
+- `walkdir` >= 2.5.0
+- `sanitize-filename` >= 0.6.0
+- `jsonwebtoken` >= 9.3.1
+- `argon2` >= 0.5.3
+- `rustls` >= 0.23.28
+- `rustls-pemfile` >= 2.2.0
+- `dotenv` >= 0.15.0
+- `directories-next` >= 2.0.0
+- `reqwest` >= 0.12.20 (with json, multipart, stream features)
+- `async-std` >= 1.13.1
 
 # How to build
 1. Clone this repository
@@ -70,8 +85,11 @@ You can also run the server using HTTPS. This can be done by creating a `certs` 
   - Use `clap` to build a user-friendly CLI
   - Support flags like `--sync`, `--watch`, `--server`, etc.
      
-- [ ] **Cross-platform Support**
+- [x] **Cross-platform Support**
   - Test on Linux, macOS, and Windows
+
+- [ ] **Build MVP releases**
+  - For Linux, macOS, and Windows
 
 
 ### Future considerations
