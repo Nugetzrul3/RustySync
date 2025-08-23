@@ -88,7 +88,7 @@ You can also run the server using HTTPS. This can be done by creating a `certs` 
 - [x] **Cross-platform Support**
   - Test on Linux, macOS, and Windows
 
-- [ ] **Build MVP releases**
+- [x] **Build MVP releases**
   - For Linux, macOS, and Windows
 
 
