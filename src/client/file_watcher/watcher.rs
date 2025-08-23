@@ -57,7 +57,6 @@ pub async fn watch_path(watch_root: PathBuf, conn: &Connection, init_dir: &PathB
     for res in rx {
         match res {
             Ok(event) => {
-                println!("Event {:?}", event);
                 for path in event.paths {
                     if !utils::check_file_path_safe(&path) {
                         continue;
