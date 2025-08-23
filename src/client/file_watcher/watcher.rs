@@ -57,6 +57,7 @@ pub async fn watch_path(watch_root: PathBuf, conn: &Connection, init_dir: &PathB
     for res in rx {
         match res {
             Ok(event) => {
+                println!("Event {:?}", event);
                 for path in event.paths {
                     if !utils::check_file_path_safe(&path) {
                         continue;
@@ -75,12 +76,83 @@ pub async fn watch_path(watch_root: PathBuf, conn: &Connection, init_dir: &PathB
                         let mut root_path = PathBuf::from(init_dir);
 
                         match &event.kind {
-                            EventKind::Create(_) | EventKind::Modify(_) => {
-                                match handle_file_create_modify(&path, &watch_root, &mut root_path, conn, init_dir, &event.kind).await {
-                                    Ok(_) => {},
-                                    Err(e) => {
-                                        eprintln!("Error handling file create/modify for {:?}: {}", path, e);
-                                        continue;
+                            EventKind::Create(_) => {
+                                if path.exists() {
+                                    match handle_file_create_modify(&path, &watch_root, &mut root_path, conn, init_dir, &event.kind).await {
+                                        Ok(_) => {},
+                                        Err(e) => {
+                                            eprintln!("Error handling file create for {:?}: {}", path, e);
+                                            continue;
+                                        }
+                                    }
+                                }
+                            }
+
+                            EventKind::Modify(modify_kind) => {
+                                match modify_kind {
+                                    notify::event::ModifyKind::Name(_) => {
+                                        // Handle move/rename events (eg. trash events)-
+                                        if !path.exists() && path.starts_with(&watch_root) {
+                                            println!("File moved/deleted (likely to trash): {:?}", path);
+                                            match handle_file_remove(&path, &watch_root, &mut root_path, conn, init_dir).await {
+                                                Ok(_) => {},
+                                                Err(e) => {
+                                                    eprintln!("Error handling file move/delete for {:?}: {}", path, e);
+                                                    continue;
+                                                }
+                                            }
+                                        } else if path.exists() {
+                                            // File was renamed but still exists in watch directory
+                                            println!("File renamed: {:?}", path);
+                                            match handle_file_create_modify(&path, &watch_root, &mut root_path, conn, init_dir, &event.kind).await {
+                                                Ok(_) => {},
+                                                Err(e) => {
+                                                    eprintln!("Error handling file rename for {:?}: {}", path, e);
+                                                    continue;
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    notify::event::ModifyKind::Data(_) => {
+                                        // Handle content changes
+                                        if path.exists() {
+                                            match handle_file_create_modify(&path, &watch_root, &mut root_path, conn, init_dir, &event.kind).await {
+                                                Ok(_) => {},
+                                                Err(e) => {
+                                                    eprintln!("Error handling file content modification for {:?}: {}", path, e);
+                                                    continue;
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    notify::event::ModifyKind::Metadata(_) => {
+                                        // Skip .DS_Store and handle metadata changes for real files
+                                        if let Some(filename) = path.file_name() {
+                                            if filename != ".DS_Store" && path.exists() {
+                                                match handle_file_create_modify(&path, &watch_root, &mut root_path, conn, init_dir, &event.kind).await {
+                                                    Ok(_) => {},
+                                                    Err(e) => {
+                                                        eprintln!("Error handling metadata change for {:?}: {}", path, e);
+                                                        continue;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    _ => {
+                                        // Handle other modification types
+                                        if path.exists() {
+                                            match handle_file_create_modify(&path, &watch_root, &mut root_path, conn, init_dir, &event.kind).await {
+                                                Ok(_) => {},
+                                                Err(e) => {
+                                                    eprintln!("Error handling file modify for {:?}: {}", path, e);
+                                                    continue;
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -96,6 +168,17 @@ pub async fn watch_path(watch_root: PathBuf, conn: &Connection, init_dir: &PathB
                             }
 
                             _ => {
+                                // Safety net: for any other events, check if file still exists
+                                if path.starts_with(&watch_root) && !path.exists() {
+                                    println!("File disappeared after unknown event: {:?}", path);
+                                    match handle_file_remove(&path, &watch_root, &mut root_path, conn, init_dir).await {
+                                        Ok(_) => {},
+                                        Err(e) => {
+                                            eprintln!("Error handling missing file for {:?}: {}", path, e);
+                                            continue;
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -139,7 +222,11 @@ async fn handle_file_create_modify(
     };
 
     println!("File {} at {:?} with hash {}",
-             if matches!(event_kind, EventKind::Modify(_)) { "Modified" } else { "Created" },
+             match event_kind {
+                 EventKind::Modify(_) => "Modified",
+                 EventKind::Create(_) => "Created",
+                 _ => "Updated"
+             },
              path, hash);
 
     let relative_path = match path.strip_prefix(&watch_root) {
